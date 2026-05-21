@@ -2,11 +2,7 @@
 
 Defines the contract for all API responses. Every endpoint must follow these shapes without exception. Consistency here is non-negotiable — clients depend on predictable response structures.
 
----
-
-## Base URL
-
-All endpoints are prefixed with `/api`.
+All endpoints are prefixed with `/api`. For naming conventions (JSON keys, URL paths, query parameters, boolean and timestamp fields), see `architecture.md`.
 
 ---
 
@@ -29,7 +25,7 @@ Paginated responses always use this envelope:
 
 ```json
 {
-  "data": [ ...array of resource DTOs... ],
+  "data": [ /* array of resource DTOs */ ],
   "meta": {
     "total": 100,
     "page": 1,
@@ -42,11 +38,20 @@ Paginated responses always use this envelope:
 ### Empty Success (e.g. logout, delete)
 Return HTTP `204 No Content` with no body.
 
+### Confirmation Success (e.g. verify email, reset password)
+When user-facing feedback is useful, return HTTP `200 OK` with a minimal `{ message }` body:
+
+```json
+{
+  "message": "Email verified successfully"
+}
+```
+
 ---
 
 ## Error Shape
 
-All errors return this shape, always. The global exception filter is responsible for this — never construct error responses manually.
+All errors return this shape, always. The global exception filter is the only place that constructs error responses — controllers and services must never build them manually.
 
 ```json
 {
@@ -79,37 +84,16 @@ Query parameters for paginated endpoints:
 
 ## Timestamps
 
-All timestamps are returned in **ISO 8601 UTC** format: `2024-01-01T00:00:00.000Z`.
-Never return Unix timestamps or locale-formatted dates.
-
----
-
-## Naming Conventions
-
-- JSON keys: `camelCase`
-- URL paths: `kebab-case` — `/api/auth/reset-password`
-- URL path parameters: `camelCase` — `/api/users/:userId`
-- Query parameters: `camelCase` — `?sortBy=createdAt`
-- Boolean fields: prefixed with `is` or `has` — `isVerified`, `isActive`
-- Timestamp fields: suffixed with `At` — `createdAt`, `updatedAt`, `expiresAt`
+All timestamps are returned in **ISO 8601 UTC** format: `2024-01-01T00:00:00.000Z`. Never return Unix timestamps or locale-formatted dates.
 
 ---
 
 ## HTTP Status Codes
 
-Use the correct code — do not return `200` for everything.
+Use the correct code — do not return `200` for everything. Standard HTTP semantics apply. Two cases that get misused and are worth calling out explicitly:
 
-| Scenario | Code |
-|----------|------|
-| Successful read | 200 |
-| Successful create | 201 |
-| Successful delete / logout | 204 |
-| Validation failed | 400 |
-| Unauthenticated | 401 |
-| Authenticated but forbidden | 403 |
-| Resource not found | 404 |
-| Conflict (e.g. email exists) | 409 |
-| Server error | 500 |
+- Successful delete or logout → **`204 No Content`**, not `200`.
+- Resource conflict (e.g. email already exists, duplicate unique key) → **`409 Conflict`**, not `400`.
 
 ---
 
@@ -121,4 +105,4 @@ Protected endpoints require a Bearer token:
 Authorization: Bearer <access_token>
 ```
 
-Refresh tokens are passed via HTTP-only cookie, not headers or body.
+Refresh tokens are passed via HTTP-only cookie, never via headers or request body.

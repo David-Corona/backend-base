@@ -17,6 +17,7 @@ These are invariants. They are not suggestions. Every module, every file, every 
 - Transactions are only performed inside services.
 - Never query the database in a loop. Batch queries.
 - All Prisma models are treated as internal. Map to a response DTO before returning from a service.
+- Migrations are written, never edited. Once a migration has been committed, never modify it — write a new migration that supersedes it. Editing committed migrations breaks every environment that already ran the old version.
 
 ## Error Handling Rules
 
@@ -25,18 +26,12 @@ These are invariants. They are not suggestions. Every module, every file, every 
 - The global exception filter is the only place that translates exceptions to HTTP responses.
 - Never return error information in a success response shape. Errors always go through the exception filter.
 
-### Exception Mapping Example
-When a service throws a domain exception, the global exception filter must map it to the API error shape precisely:
-- `UserNotFoundException` -> HTTP 404 (Not Found), code: `USER_NOT_FOUND`
-- `InvalidTokenException` -> HTTP 401 (Unauthorized), code: `INVALID_TOKEN`
+### Exception Mapping
 
-Example Filter Mapping Logic:
-{
-  "statusCode": exception.getStatus(), 
-  "error": exception.getHttpStatusLabel(),
-  "message": exception.message,
-  "code": exception.getDomainCode() // SCREAMING_SNAKE_CASE
-}
+When a service throws a domain exception, the global exception filter maps it to the API error shape. Examples:
+
+- `UserNotFoundException` → HTTP 404 (Not Found), code: `USER_NOT_FOUND`
+- `InvalidTokenException` → HTTP 401 (Unauthorized), code: `INVALID_TOKEN`
 
 ## Auth & Permissions Rules
 
@@ -65,11 +60,18 @@ Example Filter Mapping Logic:
 
 ## Naming Conventions
 
+All naming rules for the project live here. Other specs reference this section rather than duplicating it.
+
 - Files: `kebab-case` — `users.service.ts`, `create-user.dto.ts`
 - Classes: `PascalCase` — `UsersService`, `CreateUserDto`
 - Variables and functions: `camelCase`
 - Database fields: `camelCase` (Prisma default)
-- REST endpoints: `kebab-case` — `/api/auth/reset-password`
+- JSON keys: `camelCase`
+- REST endpoints / URL paths: `kebab-case` — `/api/auth/reset-password`
+- URL path parameters: `camelCase` — `/api/users/:userId`
+- Query parameters: `camelCase` — `?sortBy=createdAt`
+- Boolean fields: prefixed with `is` or `has` — `isVerified`, `isActive`
+- Timestamp fields: suffixed with `At` — `createdAt`, `updatedAt`, `expiresAt`
 - Permissions: `resource:action` format — `users:read`, `users:write`, `users:delete`
 - Environment variables: `SCREAMING_SNAKE_CASE`
 - Swagger decorator files: `*.docs.ts` alongside the controller
