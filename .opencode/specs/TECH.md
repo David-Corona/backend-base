@@ -5,7 +5,7 @@
 These are locked-in decisions. Do not substitute alternatives.
 
 ### Core
-- **NestJS v10** — framework
+- **NestJS** — framework
 - **TypeScript** — strict mode, no `any`
 - **Express** — underlying HTTP server
 

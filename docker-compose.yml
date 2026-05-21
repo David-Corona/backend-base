@@ -1,0 +1,16 @@
+services:
+  db:
+    container_name: backend-base-db
+    image: postgres:16-alpine
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: base_app
+    volumes:
+      - base_app_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  base_app_postgres_data:
