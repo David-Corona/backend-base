@@ -19,6 +19,8 @@ Current focus: initial scaffolding — auth module, user module, and the global 
 - Don't create helper files or utility modules unless explicitly asked. Prefer adding to existing files over creating new ones.
 - Prisma is touched only in services. If you find yourself importing `PrismaService` outside a service, stop and rethink.
 - All errors flow through the `AppException` hierarchy and the global exception filter. Never throw raw `Error` or construct error responses manually.
+- When all plan steps are complete, stop and propose shipping (commit + PR) per the Git section.
+- After building each step, suggest running the code-reviewer agent before moving to the next step.
 
 ## Planning
 
@@ -31,15 +33,11 @@ When asked to plan a feature (or when in plan mode):
 - Don't pad. Three steps is fine if three is enough.
 
 ## Git
-- Before starting build on any planned feature, create a feature
-  branch (feat/* or fix/*). Branch name matches the plan file name.
-  Never build on main.
-- When all plan steps are built and reviewed, propose shipping:
-  show the commit message, the PR title, and the list of files to
-  stage. One confirmation — I say yes, you commit, push, and open
-  the PR via gh pr create. Include the plan summary as the PR body.
-- Commit message: type(scope): what
-  (conventional commits: feat, fix, refactor, test, chore, docs).
+
+- Before starting build on any planned feature, create a feature branch (feat/_ or fix/_) from main. Always pull main before branching. Branch name matches the plan file name. Never build on main.
+- When all plan steps are built and reviewed, propose shipping: show the commit message, the PR title, and the list of files to stage. One confirmation — I say yes, you commit, push, and open the PR via gh pr create. Include the plan summary as the PR body.
+- After opening the PR, ask whether to merge now or leave it for review. If merging now, merge via gh, switch to main, and pull.
+- Commit message: type(scope): what (conventional commits: feat, fix, refactor, test, chore, docs).
 - Never git add . — stage explicitly.
 - Never push to main or force-push without confirmation.
 - Never commit .env, secrets, or build artifacts.
