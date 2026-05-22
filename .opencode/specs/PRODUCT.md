@@ -19,7 +19,7 @@ Users can register with an email and password, verify their email, log in, and l
 Users who forget their password can request a reset link via email. The link expires after a short window. Using the link invalidates it so it cannot be reused.
 
 ### Role-Based Access Control
-Full RBAC with roles and permissions. Roles are assigned to users (a user can have multiple roles), and permissions are assigned to roles. Route protection is based on permissions, not roles directly — so a route requires a permission (e.g. `users:read`), and the user has that permission if any of their roles grant it. This way roles are just named collections of permissions.
+Full RBAC with roles and permissions. Roles are assigned to users, and permissions are assigned to roles. Route protection is based on permissions, not roles directly — so a route requires a permission (e.g. `users:read`), and the user has that permission if any of their roles grant it. This way roles are just named collections of permissions.
 
 ### API Documentation
 All endpoints are documented via Swagger. Documentation should not clutter controllers — use custom decorators that wrap Swagger decorators, keeping controllers clean and readable.

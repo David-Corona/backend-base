@@ -17,10 +17,14 @@ model User {
   password           String
   isActive           Boolean             @default(true)
   isVerified         Boolean             @default(false)
+  roleId             String
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  role               Role                @relation(fields: [roleId], references: [id])
   sessions           Session[]
   verificationTokens VerificationToken[]
+
+  @@index([roleId])
 }
 
 model Session {
@@ -33,6 +37,40 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
 }
 
 // TODO: Add scheduled job to delete expired VerificationToken rows

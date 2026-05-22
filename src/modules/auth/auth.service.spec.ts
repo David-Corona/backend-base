@@ -7,6 +7,8 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
 import { UserAlreadyExistsException, InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
+import { RoleNotFoundException } from '@/modules/roles/roles.exceptions';
+import { UserNotFoundException } from '@/common/exceptions';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -41,6 +43,14 @@ describe('AuthService', () => {
     prisma.$transaction.mockImplementation(async (callback) => {
       return callback(prisma);
     });
+
+    prisma.role.findUnique.mockResolvedValue({
+      id: 'role-1',
+      name: 'user',
+      description: 'Default user role',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as never);
   });
 
   describe('register', () => {
@@ -51,6 +61,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: false,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -90,6 +101,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: false,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -193,9 +205,11 @@ describe('AuthService', () => {
         password: hashedPassword,
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
+        role: { id: 'role-1', name: 'user' },
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      } as never);
       jwtService.sign.mockReturnValue('jwt-access-token');
       configService.get.mockReturnValue('7d');
       prisma.session.create.mockResolvedValue({
@@ -215,6 +229,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         isVerified: true,
+        role: { id: 'role-1', name: 'user' },
         createdAt: expect.any(Date) as Date,
       });
       expect(result.expiresAt).toBeInstanceOf(Date);
@@ -236,6 +251,7 @@ describe('AuthService', () => {
         password: hashedPassword,
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -253,6 +269,7 @@ describe('AuthService', () => {
         password: hashedPassword,
         isActive: true,
         isVerified: false,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -270,6 +287,7 @@ describe('AuthService', () => {
         password: hashedPassword,
         isActive: false,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -302,6 +320,10 @@ describe('AuthService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        roleId: 'role-1',
+      } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
       const result = await service.refresh(rawToken);
@@ -377,6 +399,10 @@ describe('AuthService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        roleId: 'role-1',
+      } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
       // First use succeeds
@@ -419,6 +445,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -464,6 +491,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -506,6 +534,7 @@ describe('AuthService', () => {
         password: 'new-hashed',
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -581,6 +610,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: false,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -590,6 +620,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -650,6 +681,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -668,6 +700,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: false,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -709,6 +742,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -728,6 +762,7 @@ describe('AuthService', () => {
         password: 'hashed',
         isActive: true,
         isVerified: false,
+        roleId: 'role-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -748,6 +783,53 @@ describe('AuthService', () => {
       const result = await service.resendVerification('test@example.com');
 
       expect(result.message).toBe('If an account with that email exists, we sent a verification link.');
+    });
+  });
+
+  describe('assignRole', () => {
+    it('assigns a new role to a user', async () => {
+      prisma.role.findUnique.mockResolvedValue({
+        id: 'role-admin',
+        name: 'admin',
+      } as never);
+      prisma.user.update.mockResolvedValue({
+        id: 'user-id',
+        email: 'test@example.com',
+        isVerified: true,
+        roleId: 'role-admin',
+        role: { id: 'role-admin', name: 'admin' },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as never);
+
+      const result = await service.assignRole('user-id', 'role-admin');
+
+      expect(result.role.id).toBe('role-admin');
+      expect(result.role.name).toBe('admin');
+    });
+
+    it('throws RoleNotFoundException when role does not exist', async () => {
+      prisma.role.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.assignRole('user-id', 'nonexistent-role'),
+      ).rejects.toThrow(RoleNotFoundException);
+    });
+
+    it('throws UserNotFoundException when user does not exist', async () => {
+      prisma.role.findUnique.mockResolvedValue({
+        id: 'role-admin',
+        name: 'admin',
+      } as never);
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        'Record to update does not exist.',
+        { clientVersion: '7.8.0', code: 'P2025' },
+      );
+      prisma.user.update.mockRejectedValue(prismaError);
+
+      await expect(
+        service.assignRole('nonexistent-user', 'role-admin'),
+      ).rejects.toThrow(UserNotFoundException);
     });
   });
 });

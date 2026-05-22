@@ -24,6 +24,10 @@ interface LoginResponse {
     id: string;
     email: string;
     isVerified: boolean;
+    role: {
+      id: string;
+      name: string;
+    };
     createdAt: string;
   };
 }
@@ -117,6 +121,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: 'hashed',
           isVerified: false,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -162,6 +167,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -176,6 +182,10 @@ describe('AuthController (e2e)', () => {
         id: expect.any(String) as string,
         email: 'user@example.com',
         isVerified: true,
+        role: {
+          id: expect.any(String) as string,
+          name: 'user',
+        },
         createdAt: expect.any(String) as string,
       });
 
@@ -196,6 +206,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -233,6 +244,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: false,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -257,6 +269,7 @@ describe('AuthController (e2e)', () => {
           password: hashedPassword,
           isVerified: true,
           isActive: false,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -280,6 +293,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -301,6 +315,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -350,6 +365,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -388,6 +404,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -509,6 +526,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: 'hashed',
           isVerified: false,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -546,6 +564,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: 'hashed',
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -637,6 +656,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -661,6 +681,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -704,6 +725,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -740,6 +762,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: hashedPassword,
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
@@ -829,6 +852,7 @@ describe('AuthController (e2e)', () => {
           email: 'user@example.com',
           password: 'hashed',
           isVerified: true,
+          role: { connect: { name: 'user' } },
         },
       });
 
