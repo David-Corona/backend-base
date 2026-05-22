@@ -6,7 +6,7 @@ import { Controller, Get } from '@nestjs/common';
 import { AppException } from '@/common/exceptions/app-exception';
 import { UserNotFoundException } from '@/common/exceptions/user-exceptions';
 import { AppExceptionFilter } from '@/common/filters/app-exception.filter';
-import { LoggerModule, PinoLogger } from 'nestjs-pino';
+import { LoggerModule, Logger } from 'nestjs-pino';
 
 @Controller('test-exceptions')
 class TestExceptionsController {
@@ -40,7 +40,7 @@ describe('AppExceptionFilter', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    const logger = await app.resolve(PinoLogger);
+    const logger = await app.resolve(Logger);
     app.useGlobalFilters(new AppExceptionFilter(logger));
     await app.init();
   });

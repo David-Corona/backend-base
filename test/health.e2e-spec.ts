@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
+import * as cookieParser from 'cookie-parser';
 import type { Server } from 'http';
 import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
 import { AppModule } from '@/app.module';
@@ -18,6 +19,14 @@ describe('HealthController (e2e)', () => {
     app.useLogger(app.get(Logger));
     app.useGlobalInterceptors(new LoggerErrorInterceptor());
     app.useGlobalFilters(new AppExceptionFilter(app.get(Logger)));
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    app.use(cookieParser());
     app.enableCors();
     app.setGlobalPrefix('api');
     await app.init();

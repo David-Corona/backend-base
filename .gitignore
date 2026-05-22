@@ -52,8 +52,7 @@ pids
 *.pid.lock
 
 # Prisma
-prisma/migrations/*/
-!prisma/migrations/migration_lock.toml
+!prisma/migrations/
 
 # Docker volumes
 data/
