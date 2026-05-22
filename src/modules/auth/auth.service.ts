@@ -8,29 +8,10 @@ import { EmailService } from '@/modules/email/email.service';
 import { hash, compare } from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
 import { UserAlreadyExistsException, InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
-import { InternalServerErrorException } from '@/common/exceptions';
+import { InternalServerErrorException, UserNotFoundException } from '@/common/exceptions';
+import { RoleNotFoundException } from '@/modules/roles/roles.exceptions';
+import { getViolatedFields } from '@/common/utils/prisma';
 import { UserResponseDto } from './dto/user-response.dto';
-
-function getViolatedFields(
-  meta: Prisma.PrismaClientKnownRequestError['meta'],
-): string[] {
-  if (meta == null) {
-    return [];
-  }
-
-  if (Array.isArray(meta.target)) {
-    return meta.target as string[];
-  }
-
-  const adapterError = meta as {
-    driverAdapterError?: { cause?: { constraint?: { fields?: string[] } } };
-  };
-  if (Array.isArray(adapterError.driverAdapterError?.cause?.constraint?.fields)) {
-    return adapterError.driverAdapterError.cause.constraint.fields;
-  }
-
-  return [];
-}
 
 function parseDuration(duration: string): number {
   const units: Record<string, number> = {
@@ -78,11 +59,24 @@ export class AuthService {
       const expiresAt = new Date(Date.now() + parseDuration(verificationExpiry));
 
       await this.prisma.$transaction(async (tx) => {
+        const defaultRole = await tx.role.findUnique({
+          where: { name: 'user' },
+          select: { id: true },
+        });
+
+        if (!defaultRole) {
+          throw new InternalServerErrorException(
+            'DEFAULT_ROLE_NOT_FOUND',
+            'Default user role not found',
+          );
+        }
+
         const user = await tx.user.create({
           data: {
             email,
             password: hashedPassword,
             isVerified: false,
+            roleId: defaultRole.id,
           },
         });
 
@@ -127,6 +121,7 @@ export class AuthService {
   }> {
     const user = await this.prisma.user.findUnique({
       where: { email },
+      include: { role: { select: { id: true, name: true } } },
     });
 
     if (!user) {
@@ -146,7 +141,7 @@ export class AuthService {
       throw new EmailNotVerifiedException();
     }
 
-    const accessToken = this.jwtService.sign({ sub: user.id });
+    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId });
 
     const refreshToken = generateOpaqueToken();
     const refreshTokenHash = hashToken(refreshToken);
@@ -167,6 +162,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       isVerified: user.isVerified,
+      role: user.role,
       createdAt: user.createdAt,
     };
 
@@ -219,7 +215,16 @@ export class AuthService {
         },
       });
 
-      const accessToken = this.jwtService.sign({ sub: session.userId });
+      const user = await tx.user.findUnique({
+        where: { id: session.userId },
+        select: { roleId: true },
+      });
+
+      if (!user) {
+        throw new InvalidRefreshTokenException();
+      }
+
+      const accessToken = this.jwtService.sign({ sub: session.userId, roleId: user.roleId });
 
       return { accessToken, refreshToken: newRefreshToken, expiresAt };
     });
@@ -405,5 +410,40 @@ export class AuthService {
     }
 
     return { message: 'If an account with that email exists, we sent a verification link.' };
+  }
+
+  async assignRole(userId: string, roleId: string): Promise<UserResponseDto> {
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+      select: { id: true, name: true },
+    });
+
+    if (!role) {
+      throw new RoleNotFoundException();
+    }
+
+    try {
+      const user = await this.prisma.user.update({
+        where: { id: userId },
+        data: { roleId },
+        include: { role: { select: { id: true, name: true } } },
+      });
+
+      return {
+        id: user.id,
+        email: user.email,
+        isVerified: user.isVerified,
+        role: user.role,
+        createdAt: user.createdAt,
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new UserNotFoundException();
+      }
+      throw error;
+    }
   }
 }
