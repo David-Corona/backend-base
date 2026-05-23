@@ -93,7 +93,7 @@ export class AuthService {
         await this.emailService.sendVerificationEmail(email, verificationToken);
       } catch (error) {
         this.logger.warn(
-          { err: error instanceof Error ? error.message : String(error), email },
+          { err: error instanceof Error ? error : String(error), email },
           'Failed to send verification email',
         );
       }
@@ -272,7 +272,7 @@ export class AuthService {
       await this.emailService.sendPasswordResetEmail(email, resetToken);
     } catch (error) {
       this.logger.warn(
-        { err: error instanceof Error ? error.message : String(error), email },
+        { err: error instanceof Error ? error : String(error), email },
         'Failed to send password reset email',
       );
     }
@@ -405,7 +405,7 @@ export class AuthService {
       await this.emailService.sendVerificationEmail(email, verificationToken);
     } catch (error) {
       this.logger.warn(
-        { err: error instanceof Error ? error.message : String(error), email },
+        { err: error instanceof Error ? error : String(error), email },
         'Failed to send verification email',
       );
     }
