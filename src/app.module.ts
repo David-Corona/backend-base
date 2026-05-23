@@ -6,11 +6,13 @@ import { PrismaModule } from '@/prisma/prisma.module';
 import { HealthModule } from '@/modules/health/health.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { RolesModule } from '@/modules/roles/roles.module';
+import { UsersModule } from '@/modules/users/users.module';
+import { TasksModule } from '@/modules/tasks/tasks.module';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '@/common/guards/permissions.guard';
 
 @Module({
-  imports: [ConfigModule, LoggerModule, PrismaModule, HealthModule, AuthModule, RolesModule],
+  imports: [ConfigModule, LoggerModule, PrismaModule, HealthModule, AuthModule, RolesModule, UsersModule, TasksModule],
   providers: [
     {
       provide: APP_GUARD,

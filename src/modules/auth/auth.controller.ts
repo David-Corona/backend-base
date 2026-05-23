@@ -3,8 +3,6 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
-  Param,
-  Patch,
   Post,
   Req,
   Res,
@@ -12,8 +10,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
-import { RequirePermissions } from '@/common/decorators/require-permissions.decorator';
-import { PERMISSIONS } from '@/common/permissions';
 import { AuthService } from './auth.service';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { LoginRequestDto } from './dto/login-request.dto';
@@ -22,8 +18,6 @@ import { VerifyEmailRequestDto } from './dto/verify-email-request.dto';
 import { ForgotPasswordRequestDto } from './dto/forgot-password-request.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { ResendVerificationRequestDto } from './dto/resend-verification-request.dto';
-import { AssignRoleRequestDto } from './dto/assign-role-request.dto';
-import { UserResponseDto } from './dto/user-response.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -148,15 +142,5 @@ export class AuthController {
     @Body() dto: ResetPasswordRequestDto,
   ): Promise<{ message: string }> {
     return this.authService.resetPassword(dto.token, dto.newPassword);
-  }
-
-  @Patch('users/:id/role')
-  @RequirePermissions(PERMISSIONS.USERS_ASSIGN_ROLE)
-  @HttpCode(HttpStatus.OK)
-  async assignRole(
-    @Param('id') userId: string,
-    @Body() dto: AssignRoleRequestDto,
-  ): Promise<UserResponseDto> {
-    return this.authService.assignRole(userId, dto.roleId);
   }
 }

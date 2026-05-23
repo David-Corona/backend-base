@@ -7,11 +7,10 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
 import { hash, compare } from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
-import { UserAlreadyExistsException, InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
-import { InternalServerErrorException, UserNotFoundException } from '@/common/exceptions';
-import { RoleNotFoundException } from '@/modules/roles/roles.exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
+import { InternalServerErrorException, UserAlreadyExistsException } from '@/common/exceptions';
 import { getViolatedFields } from '@/common/utils/prisma';
-import { UserResponseDto } from './dto/user-response.dto';
+import { UserResponseDto } from '@/common/dto/user-response.dto';
 
 function parseDuration(duration: string): number {
   const units: Record<string, number> = {
@@ -161,6 +160,8 @@ export class AuthService {
     const userDto: UserResponseDto = {
       id: user.id,
       email: user.email,
+      name: user.name,
+      isActive: user.isActive,
       isVerified: user.isVerified,
       role: user.role,
       createdAt: user.createdAt,
@@ -412,38 +413,17 @@ export class AuthService {
     return { message: 'If an account with that email exists, we sent a verification link.' };
   }
 
-  async assignRole(userId: string, roleId: string): Promise<UserResponseDto> {
-    const role = await this.prisma.role.findUnique({
-      where: { id: roleId },
-      select: { id: true, name: true },
+  async cleanupExpiredSessions(): Promise<{ count: number }> {
+    const result = await this.prisma.session.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
     });
+    return { count: result.count };
+  }
 
-    if (!role) {
-      throw new RoleNotFoundException();
-    }
-
-    try {
-      const user = await this.prisma.user.update({
-        where: { id: userId },
-        data: { roleId },
-        include: { role: { select: { id: true, name: true } } },
-      });
-
-      return {
-        id: user.id,
-        email: user.email,
-        isVerified: user.isVerified,
-        role: user.role,
-        createdAt: user.createdAt,
-      };
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        throw new UserNotFoundException();
-      }
-      throw error;
-    }
+  async cleanupExpiredVerificationTokens(): Promise<{ count: number }> {
+    const result = await this.prisma.verificationToken.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+    return { count: result.count };
   }
 }

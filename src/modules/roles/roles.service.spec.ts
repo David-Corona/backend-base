@@ -12,6 +12,9 @@ import {
 } from './roles.exceptions';
 import { PERMISSIONS } from '@/common/permissions';
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 25;
+
 describe('RolesService', () => {
   let service: RolesService;
   let prisma: DeepMockProxy<PrismaService>;
@@ -106,8 +109,8 @@ describe('RolesService', () => {
   });
 
   describe('findAll', () => {
-    it('returns all roles with their permissions', async () => {
-      prisma.role.findMany.mockResolvedValue([
+    it('returns paginated roles with their permissions', async () => {
+      const mockRoles = [
         {
           id: 'role-1',
           name: 'admin',
@@ -118,13 +121,33 @@ describe('RolesService', () => {
             { permission: { key: PERMISSIONS.ROLES_READ } },
           ],
         },
-      ] as never);
+      ] as never;
 
-      const result = await service.findAll();
+      prisma.role.count.mockResolvedValue(1);
+      prisma.role.findMany.mockResolvedValue(mockRoles);
 
-      expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('admin');
-      expect(result[0].permissions).toContain(PERMISSIONS.ROLES_READ);
+      const result = await service.findAll(DEFAULT_PAGE, DEFAULT_LIMIT);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].name).toBe('admin');
+      expect(result.data[0].permissions).toContain(PERMISSIONS.ROLES_READ);
+      expect(result.meta).toEqual({
+        total: 1,
+        page: DEFAULT_PAGE,
+        limit: DEFAULT_LIMIT,
+        totalPages: 1,
+      });
+    });
+
+    it('applies skip and take correctly', async () => {
+      prisma.role.count.mockResolvedValue(50);
+      prisma.role.findMany.mockResolvedValue([] as never);
+
+      await service.findAll(3, 10);
+
+      expect(prisma.role.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 20, take: 10 }),
+      );
     });
   });
 
@@ -289,16 +312,25 @@ describe('RolesService', () => {
   });
 
   describe('findAllPermissions', () => {
-    it('returns all permissions', async () => {
-      prisma.permission.findMany.mockResolvedValue([
+    it('returns paginated permissions', async () => {
+      const mockPermissions = [
         { id: 'perm-1', key: PERMISSIONS.ROLES_READ, name: 'Read Roles', description: null, createdAt: new Date(), updatedAt: new Date() },
         { id: 'perm-2', key: PERMISSIONS.ROLES_WRITE, name: 'Write Roles', description: null, createdAt: new Date(), updatedAt: new Date() },
-      ] as never);
+      ] as never;
 
-      const result = await service.findAllPermissions();
+      prisma.permission.count.mockResolvedValue(2);
+      prisma.permission.findMany.mockResolvedValue(mockPermissions);
 
-      expect(result).toHaveLength(2);
-      expect(result[0].key).toBe(PERMISSIONS.ROLES_READ);
+      const result = await service.findAllPermissions(DEFAULT_PAGE, DEFAULT_LIMIT);
+
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].key).toBe(PERMISSIONS.ROLES_READ);
+      expect(result.meta).toEqual({
+        total: 2,
+        page: DEFAULT_PAGE,
+        limit: DEFAULT_LIMIT,
+        totalPages: 1,
+      });
     });
   });
 });
