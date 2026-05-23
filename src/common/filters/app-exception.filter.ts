@@ -34,6 +34,22 @@ function extractMessage(response: string | { message?: string | string[] }): str
   return response.message ?? 'Bad Request';
 }
 
+function sendErrorResponse(
+  response: Response,
+  statusCode: number,
+  message: string,
+  code: string,
+): void {
+  const body = {
+    statusCode,
+    error: getStatusLabel(statusCode),
+    message,
+    code,
+  };
+  response.locals.errorResponseBody = body;
+  response.status(statusCode).json(body);
+}
+
 @Catch()
 export class AppExceptionFilter implements ExceptionFilter {
   constructor(private readonly logger: Logger) {}
@@ -48,12 +64,7 @@ export class AppExceptionFilter implements ExceptionFilter {
         { statusCode, code, message },
         'Application exception handled',
       );
-      response.status(statusCode).json({
-        statusCode,
-        error: getStatusLabel(statusCode),
-        message,
-        code,
-      });
+      sendErrorResponse(response, statusCode, message, code);
       return;
     }
 
@@ -65,12 +76,7 @@ export class AppExceptionFilter implements ExceptionFilter {
         { statusCode, message },
         'Validation exception handled',
       );
-      response.status(statusCode).json({
-        statusCode,
-        error: getStatusLabel(statusCode),
-        message,
-        code: 'VALIDATION_ERROR',
-      });
+      sendErrorResponse(response, statusCode, message, 'VALIDATION_ERROR');
       return;
     }
 
@@ -84,12 +90,7 @@ export class AppExceptionFilter implements ExceptionFilter {
         { statusCode, message },
         'Unauthorized exception handled',
       );
-      response.status(statusCode).json({
-        statusCode,
-        error: getStatusLabel(statusCode),
-        message,
-        code: 'UNAUTHENTICATED',
-      });
+      sendErrorResponse(response, statusCode, message, 'UNAUTHENTICATED');
       return;
     }
 
@@ -103,27 +104,21 @@ export class AppExceptionFilter implements ExceptionFilter {
         { statusCode, message },
         'HTTP exception handled',
       );
-      response.status(statusCode).json({
-        statusCode,
-        error: getStatusLabel(statusCode),
-        message,
-        code: 'HTTP_EXCEPTION',
-      });
+      sendErrorResponse(response, statusCode, message, 'HTTP_EXCEPTION');
       return;
     }
 
     const statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
 
     this.logger.error(
-      { err: exception instanceof Error ? exception.message : String(exception) },
+      { err: exception instanceof Error ? exception : String(exception) },
       'Unhandled exception',
     );
-
-    response.status(statusCode).json({
+    sendErrorResponse(
+      response,
       statusCode,
-      error: getStatusLabel(statusCode),
-      message: 'Internal server error',
-      code: 'INTERNAL_SERVER_ERROR',
-    });
+      'Internal server error',
+      'INTERNAL_SERVER_ERROR',
+    );
   }
 }

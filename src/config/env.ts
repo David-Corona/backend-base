@@ -11,6 +11,7 @@ export const envSchema = z.object({
   EMAIL_VERIFICATION_TOKEN_EXPIRATION: z.string().regex(/^\d+[dhms]$/).default('24h'),
   RESEND_API_KEY: z.string().min(1),
   FROM_EMAIL: z.string().email(),
+  LOG_REQUEST_BODIES: z.enum(['true', 'false']).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
