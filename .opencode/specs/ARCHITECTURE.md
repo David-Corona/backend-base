@@ -57,6 +57,9 @@ When a service throws a domain exception, the global exception filter maps it to
 - Use the injected Pino logger only. No `console.log`, no `console.error`.
 - Log structured objects, not interpolated strings. `logger.info({ userId, action }, 'User action')` not `logger.info('User ' + userId + ' did ' + action)`.
 - Log meaningful business events (login, registration, password reset) not implementation details.
+- Always pass the full `Error` object (not `error.message`) to the `err` field so the log includes the stack trace: `logger.error({ err: error }, '...')` or `logger.warn({ err: error instanceof Error ? error : String(error) }, '...')`.
+- Include domain-specific IDs (`userId`, `roleId`, `email`) in log context objects when available.
+- Use log levels consistently: `error` for unexpected failures, `warn` for handled business errors, `info` for notable events, `debug` for development tracing.
 
 ## Naming Conventions
 
