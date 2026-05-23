@@ -1,11 +1,5 @@
 import { ConflictException, ForbiddenException, UnauthorizedException, BadRequestException } from '@/common/exceptions';
 
-export class UserAlreadyExistsException extends ConflictException {
-  constructor() {
-    super('USER_ALREADY_EXISTS', 'User with this email already exists');
-  }
-}
-
 export class EmailNotVerifiedException extends ForbiddenException {
   constructor() {
     super('EMAIL_NOT_VERIFIED', 'Email not verified');

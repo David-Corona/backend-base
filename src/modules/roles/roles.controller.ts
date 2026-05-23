@@ -6,24 +6,29 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { RequirePermissions } from '@/common/decorators/require-permissions.decorator';
 import { PERMISSIONS } from '@/common/permissions';
+import { RolesPaginationQueryDto } from './dto/roles-pagination-query.dto';
 import type { CreateRoleRequestDto } from './dto/create-role-request.dto';
 import type { UpdateRoleRequestDto } from './dto/update-role-request.dto';
 import type { RoleResponseDto } from './dto/role-response.dto';
+import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 
-@Controller('api/roles')
+@Controller('roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.ROLES_READ)
-  async findAll(): Promise<RoleResponseDto[]> {
-    return this.rolesService.findAll();
+  async findAll(
+    @Query() pagination: RolesPaginationQueryDto,
+  ): Promise<PaginatedResponse<RoleResponseDto>> {
+    return this.rolesService.findAll(pagination.page, pagination.limit);
   }
 
   @Get(':id')

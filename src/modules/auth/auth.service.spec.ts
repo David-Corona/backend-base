@@ -6,9 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
-import { UserAlreadyExistsException, InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
-import { RoleNotFoundException } from '@/modules/roles/roles.exceptions';
-import { UserNotFoundException } from '@/common/exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
+import { UserAlreadyExistsException } from '@/common/exceptions';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -59,6 +58,7 @@ describe('AuthService', () => {
         id: 'test-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: false,
         roleId: 'role-1',
@@ -99,6 +99,7 @@ describe('AuthService', () => {
         id: 'test-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: false,
         roleId: 'role-1',
@@ -203,6 +204,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: hashedPassword,
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -228,6 +230,8 @@ describe('AuthService', () => {
       expect(result.user).toEqual({
         id: 'user-id',
         email: 'test@example.com',
+        name: null,
+        isActive: true,
         isVerified: true,
         role: { id: 'role-1', name: 'user' },
         createdAt: expect.any(Date) as Date,
@@ -249,6 +253,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: hashedPassword,
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -267,6 +272,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: hashedPassword,
+        name: null,
         isActive: true,
         isVerified: false,
         roleId: 'role-1',
@@ -285,6 +291,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: hashedPassword,
+        name: null,
         isActive: false,
         isVerified: true,
         roleId: 'role-1',
@@ -443,6 +450,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -489,6 +497,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -532,6 +541,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'new-hashed',
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -608,6 +618,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: false,
         roleId: 'role-1',
@@ -618,6 +629,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -679,6 +691,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -698,6 +711,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: false,
         roleId: 'role-1',
@@ -740,6 +754,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
@@ -760,6 +775,7 @@ describe('AuthService', () => {
         id: 'user-id',
         email: 'test@example.com',
         password: 'hashed',
+        name: null,
         isActive: true,
         isVerified: false,
         roleId: 'role-1',
@@ -786,50 +802,29 @@ describe('AuthService', () => {
     });
   });
 
-  describe('assignRole', () => {
-    it('assigns a new role to a user', async () => {
-      prisma.role.findUnique.mockResolvedValue({
-        id: 'role-admin',
-        name: 'admin',
-      } as never);
-      prisma.user.update.mockResolvedValue({
-        id: 'user-id',
-        email: 'test@example.com',
-        isVerified: true,
-        roleId: 'role-admin',
-        role: { id: 'role-admin', name: 'admin' },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as never);
+  describe('cleanupExpiredSessions', () => {
+    it('deletes sessions with expired expiresAt', async () => {
+      prisma.session.deleteMany.mockResolvedValue({ count: 5 });
 
-      const result = await service.assignRole('user-id', 'role-admin');
+      const result = await service.cleanupExpiredSessions();
 
-      expect(result.role.id).toBe('role-admin');
-      expect(result.role.name).toBe('admin');
+      expect(result.count).toBe(5);
+      expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+        where: { expiresAt: { lt: expect.any(Date) } },
+      });
     });
+  });
 
-    it('throws RoleNotFoundException when role does not exist', async () => {
-      prisma.role.findUnique.mockResolvedValue(null);
+  describe('cleanupExpiredVerificationTokens', () => {
+    it('deletes verification tokens with expired expiresAt', async () => {
+      prisma.verificationToken.deleteMany.mockResolvedValue({ count: 3 });
 
-      await expect(
-        service.assignRole('user-id', 'nonexistent-role'),
-      ).rejects.toThrow(RoleNotFoundException);
-    });
+      const result = await service.cleanupExpiredVerificationTokens();
 
-    it('throws UserNotFoundException when user does not exist', async () => {
-      prisma.role.findUnique.mockResolvedValue({
-        id: 'role-admin',
-        name: 'admin',
-      } as never);
-      const prismaError = new Prisma.PrismaClientKnownRequestError(
-        'Record to update does not exist.',
-        { clientVersion: '7.8.0', code: 'P2025' },
-      );
-      prisma.user.update.mockRejectedValue(prismaError);
-
-      await expect(
-        service.assignRole('nonexistent-user', 'role-admin'),
-      ).rejects.toThrow(UserNotFoundException);
+      expect(result.count).toBe(3);
+      expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
+        where: { expiresAt: { lt: expect.any(Date) } },
+      });
     });
   });
 });

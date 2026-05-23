@@ -7,4 +7,4 @@ export {
   ConflictException,
   InternalServerErrorException,
 } from './http-exceptions';
-export { UserNotFoundException } from './user-exceptions';
+export { UserNotFoundException, UserAlreadyExistsException } from './user-exceptions';

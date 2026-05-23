@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { getViolatedFields } from '@/common/utils/prisma';
+import { paginate } from '@/common/utils/pagination';
 import {
   RoleNotFoundException,
   RoleAlreadyExistsException,
@@ -12,6 +13,8 @@ import {
 import type { CreateRoleRequestDto } from './dto/create-role-request.dto';
 import type { UpdateRoleRequestDto } from './dto/update-role-request.dto';
 import type { RoleResponseDto } from './dto/role-response.dto';
+import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
+import type { PermissionResponseDto } from '@/modules/roles/dto/permission-response.dto';
 
 @Injectable()
 export class RolesService {
@@ -61,26 +64,42 @@ export class RolesService {
     }
   }
 
-  async findAll(): Promise<RoleResponseDto[]> {
-    const roles = await this.prisma.role.findMany({
-      include: {
-        permissions: {
-          include: {
-            permission: { select: { key: true } },
-          },
+  async findAll(
+    page: number,
+    limit: number,
+  ): Promise<PaginatedResponse<RoleResponseDto>> {
+    const roleInclude = {
+      permissions: {
+        include: {
+          permission: { select: { key: true } },
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    } as const;
 
-    return roles.map((role) => ({
-      id: role.id,
-      name: role.name,
-      description: role.description,
-      permissions: role.permissions.map((rp) => rp.permission.key),
-      createdAt: role.createdAt,
-      updatedAt: role.updatedAt,
-    }));
+    const result = await paginate(
+      () => this.prisma.role.count(),
+      (skip, take) =>
+        this.prisma.role.findMany({
+          skip,
+          take,
+          include: roleInclude,
+          orderBy: { createdAt: 'desc' },
+        }),
+      page,
+      limit,
+    );
+
+    return {
+      data: result.data.map((role) => ({
+        id: role.id,
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions.map((rp) => rp.permission.key),
+        createdAt: role.createdAt,
+        updatedAt: role.updatedAt,
+      })),
+      meta: result.meta,
+    };
   }
 
   async findOne(id: string): Promise<RoleResponseDto> {
@@ -214,9 +233,20 @@ export class RolesService {
     return rolePermissions.map((rp) => rp.permission.key);
   }
 
-  async findAllPermissions(): Promise<{ id: string; key: string; name: string; description: string | null; createdAt: Date; updatedAt: Date }[]> {
-    return this.prisma.permission.findMany({
-      orderBy: { key: 'asc' },
-    });
+  async findAllPermissions(
+    page: number,
+    limit: number,
+  ): Promise<PaginatedResponse<PermissionResponseDto>> {
+    return paginate(
+      () => this.prisma.permission.count(),
+      (skip, take) =>
+        this.prisma.permission.findMany({
+          skip,
+          take,
+          orderBy: { key: 'asc' },
+        }),
+      page,
+      limit,
+    );
   }
 }

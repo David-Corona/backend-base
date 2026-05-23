@@ -78,7 +78,7 @@ Query parameters for paginated endpoints:
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `page` | number | 1 | Page number, 1-indexed |
-| `limit` | number | 20 | Items per page, max 100 |
+| `limit` | number | 25 | Items per page, max 100 |
 
 ---
 
