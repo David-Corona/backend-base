@@ -9,7 +9,7 @@ import { AuthModule } from '@/modules/auth/auth.module';
 import { RolesModule } from '@/modules/roles/roles.module';
 import { UsersModule } from '@/modules/users/users.module';
 import { TasksModule } from '@/modules/tasks/tasks.module';
-import { ThrottlerConfigModule } from '@/common/throttler/throttler.module';
+import { ThrottlerConfigModule } from '@/config/throttler.module';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '@/common/guards/permissions.guard';
 

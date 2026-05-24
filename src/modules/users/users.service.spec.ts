@@ -60,7 +60,7 @@ describe('UsersService', () => {
       prisma.user.count.mockResolvedValue(2);
       prisma.user.findMany.mockResolvedValue([mockUser, mockAdminUser]);
 
-      const result = await service.findAll(1, 20);
+      const result = await service.findAll({ page: 1, limit: 20 });
 
       expect(result.data).toHaveLength(2);
       expect(result.meta).toEqual({
@@ -87,7 +87,7 @@ describe('UsersService', () => {
       prisma.user.count.mockResolvedValue(1);
       prisma.user.findMany.mockResolvedValue([inactiveUser]);
 
-      const result = await service.findAll(1, 20, UserStatusFilter.INACTIVE);
+      const result = await service.findAll({ page: 1, limit: 20, status: UserStatusFilter.INACTIVE });
 
       expect(result.data).toHaveLength(1);
       expect(prisma.user.count).toHaveBeenCalledWith(
@@ -99,7 +99,7 @@ describe('UsersService', () => {
       prisma.user.count.mockResolvedValue(2);
       prisma.user.findMany.mockResolvedValue([mockUser, mockAdminUser]);
 
-      const result = await service.findAll(1, 20, UserStatusFilter.ALL);
+      const result = await service.findAll({ page: 1, limit: 20, status: UserStatusFilter.ALL });
 
       expect(result.data).toHaveLength(2);
       expect(prisma.user.count).toHaveBeenCalledWith(
@@ -111,7 +111,7 @@ describe('UsersService', () => {
       prisma.user.count.mockResolvedValue(45);
       prisma.user.findMany.mockResolvedValue([]);
 
-      const result = await service.findAll(1, 20);
+      const result = await service.findAll({ page: 1, limit: 20 });
 
       expect(result.meta.totalPages).toBe(3);
     });
@@ -120,9 +120,71 @@ describe('UsersService', () => {
       prisma.user.count.mockResolvedValue(0);
       prisma.user.findMany.mockResolvedValue([]);
 
-      const result = await service.findAll(1, 20);
+      const result = await service.findAll({ page: 1, limit: 20 });
 
       expect(result.meta.totalPages).toBe(0);
+    });
+
+    it('filters by name using case-insensitive contains', async () => {
+      prisma.user.count.mockResolvedValue(1);
+      prisma.user.findMany.mockResolvedValue([mockUser]);
+
+      const result = await service.findAll({ page: 1, limit: 20, status: UserStatusFilter.ALL, name: 'test' });
+
+      expect(result.data).toHaveLength(1);
+      expect(prisma.user.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'test', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('filters by email using case-insensitive contains', async () => {
+      prisma.user.count.mockResolvedValue(1);
+      prisma.user.findMany.mockResolvedValue([mockUser]);
+
+      const result = await service.findAll({ page: 1, limit: 20, status: UserStatusFilter.ALL, email: 'example' });
+
+      expect(result.data).toHaveLength(1);
+      expect(prisma.user.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            email: { contains: 'example', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('filters by both name and email simultaneously', async () => {
+      prisma.user.count.mockResolvedValue(1);
+      prisma.user.findMany.mockResolvedValue([mockUser]);
+
+      const result = await service.findAll({ page: 1, limit: 20, status: UserStatusFilter.ALL, name: 'Test', email: 'test@example.com' });
+
+      expect(result.data).toHaveLength(1);
+      expect(prisma.user.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'Test', mode: 'insensitive' },
+            email: { contains: 'test@example.com', mode: 'insensitive' },
+          }),
+        }),
+      );
+    });
+
+    it('combines status filter with name filter', async () => {
+      prisma.user.count.mockResolvedValue(0);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      await service.findAll({ page: 1, limit: 20, status: UserStatusFilter.ACTIVE, name: 'nonexistent' });
+
+      expect(prisma.user.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { isActive: true, name: { contains: 'nonexistent', mode: 'insensitive' } },
+        }),
+      );
     });
   });
 

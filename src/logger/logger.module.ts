@@ -30,7 +30,7 @@ export function buildReqSerializer(
 ): (req: Request) => Record<string, unknown> {
   return (req: Request) => {
     const serialized = stdSerializers.req(
-      req as unknown as Parameters<typeof stdSerializers.req>[0],
+      req,
     );
     // pino-http calls serializers at response-finish time, so req.res.statusCode
     // is always the final response status. This is an implicit dependency on
@@ -54,7 +54,7 @@ export function buildReqSerializer(
 export function buildResSerializer(): (res: Response) => Record<string, unknown> {
   return (res: Response) => {
     const serialized = stdSerializers.res(
-      res as unknown as Parameters<typeof stdSerializers.res>[0],
+      res,
     );
     return {
       ...serialized,

@@ -10,7 +10,7 @@ import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 import { paginate } from '@/common/utils/pagination';
 import type { CreateUserRequestDto } from './dto/create-user-request.dto';
 import type { UpdateUserRequestDto } from './dto/update-user-request.dto';
-import { UserStatusFilter } from './dto/users-pagination-query.dto';
+import { UserStatusFilter, UsersPaginationQueryDto } from './dto/users-pagination-query.dto';
 import { getViolatedFields } from '@/common/utils/prisma';
 
 function toUserResponseDto(user: {
@@ -41,15 +41,22 @@ export class UsersService {
   ) {}
 
   async findAll(
-    page: number,
-    limit: number,
-    status: UserStatusFilter = UserStatusFilter.ACTIVE,
+    query: UsersPaginationQueryDto,
   ): Promise<PaginatedResponse<UserResponseDto>> {
     const where: Prisma.UserWhereInput = {};
+    const status = query.status ?? UserStatusFilter.ACTIVE;
     if (status === UserStatusFilter.ACTIVE) {
       where.isActive = true;
     } else if (status === UserStatusFilter.INACTIVE) {
       where.isActive = false;
+    }
+
+    if (query.name) {
+      where.name = { contains: query.name, mode: 'insensitive' };
+    }
+
+    if (query.email) {
+      where.email = { contains: query.email, mode: 'insensitive' };
     }
 
     const result = await paginate(
@@ -62,8 +69,8 @@ export class UsersService {
           orderBy: { createdAt: 'desc' },
           include: { role: { select: { id: true, name: true } } },
         }),
-      page,
-      limit,
+      query.page,
+      query.limit,
     );
 
     return {

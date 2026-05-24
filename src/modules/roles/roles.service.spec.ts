@@ -50,7 +50,7 @@ describe('RolesService', () => {
         { id: 'perm-1' },
         { id: 'perm-2' },
       ] as never);
-      prisma.rolePermission.createMany.mockResolvedValue({ count: 2 } as never);
+      prisma.rolePermission.createMany.mockResolvedValue({ count: 2 });
       prisma.role.findUnique.mockResolvedValue({
         ...mockRole,
         permissions: [
@@ -186,10 +186,10 @@ describe('RolesService', () => {
         description: 'Updated desc',
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as never);
-      prisma.rolePermission.deleteMany.mockResolvedValue({ count: 1 } as never);
+      });
+      prisma.rolePermission.deleteMany.mockResolvedValue({ count: 1 });
       prisma.permission.findMany.mockResolvedValue([{ id: 'perm-1' }] as never);
-      prisma.rolePermission.createMany.mockResolvedValue({ count: 1 } as never);
+      prisma.rolePermission.createMany.mockResolvedValue({ count: 1 });
       prisma.role.findUnique.mockResolvedValue({
         id: 'role-1',
         name: 'updated-name',
@@ -219,7 +219,7 @@ describe('RolesService', () => {
 
     it('throws InvalidPermissionsException when permission does not exist', async () => {
       prisma.role.findUnique.mockResolvedValue({ id: 'role-1' } as never);
-      prisma.rolePermission.deleteMany.mockResolvedValue({ count: 0 } as never);
+      prisma.rolePermission.deleteMany.mockResolvedValue({ count: 0 });
       prisma.permission.findMany.mockResolvedValue([{ id: 'perm-1' }] as never);
 
       await expect(
@@ -241,7 +241,7 @@ describe('RolesService', () => {
         description: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as never);
+      });
       prisma.user.count.mockResolvedValue(0);
       prisma.role.delete.mockResolvedValue({
         id: 'role-1',
@@ -249,7 +249,7 @@ describe('RolesService', () => {
         description: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as never);
+      });
 
       await service.remove('role-1');
 
@@ -275,7 +275,7 @@ describe('RolesService', () => {
         description: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as never);
+      });
 
       await expect(service.remove('role-admin')).rejects.toThrow(RoleProtectedException);
     });
@@ -290,7 +290,7 @@ describe('RolesService', () => {
         description: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as never);
+      });
       prisma.user.count.mockResolvedValue(3);
 
       await expect(service.remove('role-1')).rejects.toThrow(RoleInUseException);
