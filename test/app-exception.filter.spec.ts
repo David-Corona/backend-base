@@ -3,6 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import type { Server } from 'http';
 import { Controller, Get } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { AppException } from '@/common/exceptions/app-exception';
 import { UserNotFoundException } from '@/common/exceptions/user-exceptions';
 import { AppExceptionFilter } from '@/common/filters/app-exception.filter';
@@ -18,6 +19,11 @@ class TestExceptionsController {
   @Get('user-not-found')
   throwUserNotFound(): void {
     throw new UserNotFoundException();
+  }
+
+  @Get('throttler')
+  throwThrottler(): void {
+    throw new ThrottlerException();
   }
 
   @Get('unknown-error')
@@ -85,6 +91,19 @@ describe('AppExceptionFilter', () => {
       error: 'Internal Server Error',
       message: 'Internal server error',
       code: 'INTERNAL_SERVER_ERROR',
+    });
+  });
+
+  it('maps ThrottlerException to 429 with RATE_LIMITED code', async () => {
+    const response = await request(app.getHttpServer() as Server)
+      .get('/test-exceptions/throttler')
+      .expect(429);
+
+    expect(response.body).toEqual({
+      statusCode: 429,
+      error: 'Too Many Requests',
+      message: 'Too Many Requests',
+      code: 'RATE_LIMITED',
     });
   });
 });

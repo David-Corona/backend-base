@@ -1,7 +1,7 @@
 ---
 description: Reviews code changes for bugs, security issues, and quality problems. Invoke after completing a build step.
 mode: subagent
-model: opencode-go/glm-5.1
+# model: opencode-go/glm-5.1
 temperature: 0.1
 permission:
   edit: deny
