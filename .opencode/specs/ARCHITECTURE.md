@@ -50,7 +50,7 @@ When a service throws a domain exception, the global exception filter maps it to
 
 - No shared mutable state between requests.
 - Side effects (emails, events, scheduled tasks) are triggered from services, not controllers or guards.
-- Configuration is always read from `@nestjs/config`. No `process.env` access outside of config files.
+- Configuration should be read from `@nestjs/config`. `process.env` may only be read where `ConfigService` cannot be injected.
 
 ## Logging Rules
 

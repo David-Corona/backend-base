@@ -24,6 +24,7 @@ import { ChangePasswordRequestDto } from './dto/change-password-request.dto';
 const AUTH_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_AUTH ?? '10', 10);
 
 @Controller('auth')
+@Throttle({ default: { limit: AUTH_RATE_LIMIT } })
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -57,7 +58,6 @@ export class AuthController {
 
   @Post('register')
   @Public()
-  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() dto: RegisterRequestDto,
@@ -68,7 +68,6 @@ export class AuthController {
 
   @Post('login')
   @Public()
-  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginRequestDto,
@@ -116,7 +115,6 @@ export class AuthController {
 
   @Post('verify-email')
   @Public()
-  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async verifyEmail(
     @Body() dto: VerifyEmailRequestDto,
@@ -126,7 +124,6 @@ export class AuthController {
 
   @Post('resend-verification')
   @Public()
-  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async resendVerification(
     @Body() dto: ResendVerificationRequestDto,
@@ -136,7 +133,6 @@ export class AuthController {
 
   @Post('forgot-password')
   @Public()
-  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
     @Body() dto: ForgotPasswordRequestDto,
@@ -146,7 +142,6 @@ export class AuthController {
 
   @Post('reset-password')
   @Public()
-  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async resetPassword(
     @Body() dto: ResetPasswordRequestDto,
@@ -155,7 +150,6 @@ export class AuthController {
   }
 
   @Post('change-password')
-  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async changePassword(
     @Req() req: Request,
