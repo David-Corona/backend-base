@@ -7,6 +7,7 @@ import {
   UnauthorizedException as NestUnauthorizedException,
   HttpException,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { Logger } from 'nestjs-pino';
 import { AppException } from '../exceptions/app-exception';
@@ -17,6 +18,7 @@ const statusLabels: Record<number, string> = {
   [HttpStatus.FORBIDDEN]: 'Forbidden',
   [HttpStatus.NOT_FOUND]: 'Not Found',
   [HttpStatus.CONFLICT]: 'Conflict',
+  [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
   [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
 };
 
@@ -91,6 +93,16 @@ export class AppExceptionFilter implements ExceptionFilter {
         'Unauthorized exception handled',
       );
       sendErrorResponse(response, statusCode, message, 'UNAUTHENTICATED');
+      return;
+    }
+
+    if (exception instanceof ThrottlerException) {
+      const statusCode = exception.getStatus();
+      this.logger.warn(
+        { statusCode },
+        'Rate limit exceeded',
+      );
+      sendErrorResponse(response, statusCode, 'Too Many Requests', 'RATE_LIMITED');
       return;
     }
 

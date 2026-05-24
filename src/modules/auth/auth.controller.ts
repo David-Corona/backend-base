@@ -8,6 +8,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
 import { AuthService } from './auth.service';
@@ -18,6 +19,8 @@ import { VerifyEmailRequestDto } from './dto/verify-email-request.dto';
 import { ForgotPasswordRequestDto } from './dto/forgot-password-request.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { ResendVerificationRequestDto } from './dto/resend-verification-request.dto';
+
+const AUTH_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_AUTH ?? '10', 10);
 
 @Controller('auth')
 export class AuthController {
@@ -53,6 +56,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() dto: RegisterRequestDto,
@@ -63,6 +67,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginRequestDto,
@@ -110,6 +115,7 @@ export class AuthController {
 
   @Post('verify-email')
   @Public()
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async verifyEmail(
     @Body() dto: VerifyEmailRequestDto,
@@ -119,6 +125,7 @@ export class AuthController {
 
   @Post('resend-verification')
   @Public()
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async resendVerification(
     @Body() dto: ResendVerificationRequestDto,
@@ -128,6 +135,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @Public()
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
     @Body() dto: ForgotPasswordRequestDto,
@@ -137,6 +145,7 @@ export class AuthController {
 
   @Post('reset-password')
   @Public()
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @HttpCode(HttpStatus.OK)
   async resetPassword(
     @Body() dto: ResetPasswordRequestDto,
