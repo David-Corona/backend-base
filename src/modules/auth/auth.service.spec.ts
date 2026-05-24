@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+import { SessionService } from './session.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
 import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
@@ -16,6 +17,7 @@ import { createHash } from 'crypto';
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: DeepMockProxy<PrismaService>;
+  let sessionService: jest.Mocked<SessionService>;
   let jwtService: { sign: jest.Mock };
   let configService: { get: jest.Mock; getOrThrow: jest.Mock };
   let emailService: { sendVerificationEmail: jest.Mock; sendPasswordResetEmail: jest.Mock };
@@ -24,11 +26,24 @@ describe('AuthService', () => {
     jwtService = { sign: jest.fn() };
     configService = { get: jest.fn(), getOrThrow: jest.fn() };
     emailService = { sendVerificationEmail: jest.fn(), sendPasswordResetEmail: jest.fn() };
+    sessionService = {
+      create: jest.fn(),
+      createInTransaction: jest.fn(),
+      deleteSessionByTokenHash: jest.fn(),
+      consumeSessionByTokenHashInTransaction: jest.fn(),
+      deleteByUserIdInTransaction: jest.fn(),
+      listSessions: jest.fn(),
+      terminateSession: jest.fn(),
+      terminateAllOtherSessions: jest.fn(),
+      terminateAllSessions: jest.fn(),
+      cleanupExpiredSessions: jest.fn(),
+    } as unknown as jest.Mocked<SessionService>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: mockDeep<PrismaClient>() },
+        { provide: SessionService, useValue: sessionService },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
         { provide: EmailService, useValue: emailService },
@@ -214,17 +229,13 @@ describe('AuthService', () => {
       } as never);
       jwtService.sign.mockReturnValue('jwt-access-token');
       configService.get.mockReturnValue('7d');
-      prisma.session.create.mockResolvedValue({
+      sessionService.create.mockResolvedValue({
         id: 'session-id',
-        userId: 'user-id',
-        tokenHash: 'hashed-token',
-        expiresAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
       });
 
       const result = await service.login('test@example.com', 'password123');
 
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'session-id' });
       expect(result.accessToken).toBe('jwt-access-token');
       expect(result.refreshToken).toMatch(/^[a-f0-9]{128}$/);
       expect(result.user).toEqual({
@@ -310,22 +321,16 @@ describe('AuthService', () => {
       const rawToken = 'a'.repeat(128);
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
-      prisma.session.delete.mockResolvedValue({
+      sessionService.consumeSessionByTokenHashInTransaction.mockResolvedValue({
         id: 'session-id',
         userId: 'user-id',
-        tokenHash,
         expiresAt: new Date(Date.now() + 86_400_000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        userAgent: 'Chrome/120',
+        ip: '1.2.3.4',
       });
       configService.get.mockReturnValue('7d');
-      prisma.session.create.mockResolvedValue({
+      sessionService.createInTransaction.mockResolvedValue({
         id: 'new-session-id',
-        userId: 'user-id',
-        tokenHash: 'new-hash',
-        expiresAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
       });
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
@@ -335,18 +340,25 @@ describe('AuthService', () => {
 
       const result = await service.refresh(rawToken);
 
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id' });
       expect(result.accessToken).toBe('new-jwt-access-token');
       expect(result.refreshToken).toMatch(/^[a-f0-9]{128}$/);
       expect(result.expiresAt).toBeInstanceOf(Date);
-      expect(prisma.session.delete.mock.calls.length).toBe(1);
-      const deleteCall = prisma.session.delete.mock.calls[0];
-      expect(deleteCall).toEqual([{ where: { tokenHash } }]);
-
-      expect(prisma.session.create.mock.calls.length).toBe(1);
-      const createCall = prisma.session.create.mock.calls[0];
+      expect(sessionService.consumeSessionByTokenHashInTransaction).toHaveBeenCalledWith(
+        prisma,
+        tokenHash,
+      );
+      expect(sessionService.createInTransaction).toHaveBeenCalled();
+      const createCall = sessionService.createInTransaction.mock.calls[0];
       expect(
-        (createCall?.[0] as { data: { userId: string } }).data.userId,
-      ).toBe('user-id');
+        (createCall?.[1] as { userId: string; userAgent: string; ip: string }),
+      ).toEqual({
+        userId: 'user-id',
+        expiresAt: expect.any(Date),
+        tokenHash: expect.any(String),
+        userAgent: 'Chrome/120',
+        ip: '1.2.3.4',
+      });
     });
 
     it('throws InvalidRefreshTokenException when token is undefined', async () => {
@@ -360,7 +372,7 @@ describe('AuthService', () => {
         'Record to delete does not exist.',
         { clientVersion: '7.8.0', code: 'P2025' },
       );
-      prisma.session.delete.mockRejectedValue(prismaError);
+      sessionService.consumeSessionByTokenHashInTransaction.mockRejectedValue(prismaError);
 
       await expect(
         service.refresh('invalid-token'),
@@ -369,15 +381,13 @@ describe('AuthService', () => {
 
     it('throws InvalidRefreshTokenException when session is expired', async () => {
       const rawToken = 'b'.repeat(128);
-      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
-      prisma.session.delete.mockResolvedValue({
+      sessionService.consumeSessionByTokenHashInTransaction.mockResolvedValue({
         id: 'session-id',
         userId: 'user-id',
-        tokenHash,
         expiresAt: new Date(Date.now() - 86_400_000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        userAgent: null,
+        ip: null,
       });
 
       await expect(
@@ -387,24 +397,17 @@ describe('AuthService', () => {
 
     it('throws InvalidRefreshTokenException when token is reused', async () => {
       const rawToken = 'c'.repeat(128);
-      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
-      prisma.session.delete.mockResolvedValue({
+      sessionService.consumeSessionByTokenHashInTransaction.mockResolvedValue({
         id: 'session-id',
         userId: 'user-id',
-        tokenHash,
         expiresAt: new Date(Date.now() + 86_400_000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        userAgent: null,
+        ip: null,
       });
       configService.get.mockReturnValue('7d');
-      prisma.session.create.mockResolvedValue({
+      sessionService.createInTransaction.mockResolvedValue({
         id: 'new-session-id',
-        userId: 'user-id',
-        tokenHash: 'new-hash',
-        expiresAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
       });
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
@@ -420,7 +423,7 @@ describe('AuthService', () => {
         'Record to delete does not exist.',
         { clientVersion: '7.8.0', code: 'P2025' },
       );
-      prisma.session.delete.mockRejectedValue(prismaError);
+      sessionService.consumeSessionByTokenHashInTransaction.mockRejectedValue(prismaError);
 
       await expect(service.refresh(rawToken)).rejects.toThrow(
         InvalidRefreshTokenException,
@@ -430,15 +433,15 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('deletes the session', async () => {
-      prisma.session.deleteMany.mockResolvedValue({ count: 1 });
+      sessionService.deleteSessionByTokenHash.mockResolvedValue(undefined);
 
       await service.logout('some-token');
 
-      expect(prisma.session.deleteMany.mock.calls.length).toBe(1);
+      expect(sessionService.deleteSessionByTokenHash.mock.calls.length).toBe(1);
     });
 
     it('succeeds silently when session does not exist', async () => {
-      prisma.session.deleteMany.mockResolvedValue({ count: 0 });
+      sessionService.deleteSessionByTokenHash.mockResolvedValue(undefined);
 
       await expect(service.logout('nonexistent-token')).resolves.toBeUndefined();
     });
@@ -557,7 +560,6 @@ describe('AuthService', () => {
         createdAt: new Date(),
       });
       prisma.verificationToken.deleteMany.mockResolvedValue({ count: 0 });
-      prisma.session.deleteMany.mockResolvedValue({ count: 2 });
 
       const result = await service.resetPassword(rawToken, 'newpassword123');
 
@@ -567,11 +569,10 @@ describe('AuthService', () => {
       const newPassword = (updateCall?.[0] as { data: { password: string } }).data.password;
       expect(newPassword).toMatch(/^\$2[aby]\$/);
       expect(prisma.verificationToken.deleteMany.mock.calls.length).toBe(1);
-      expect(prisma.session.deleteMany.mock.calls.length).toBe(1);
-      const sessionDeleteCall = prisma.session.deleteMany.mock.calls[0];
-      expect(
-        (sessionDeleteCall?.[0] as { where: { userId: string } }).where.userId,
-      ).toBe('user-id');
+      expect(sessionService.deleteByUserIdInTransaction).toHaveBeenCalledWith(
+        prisma,
+        'user-id',
+      );
     });
 
     it('throws InvalidTokenException when token not found', async () => {
@@ -806,6 +807,9 @@ describe('AuthService', () => {
     beforeEach(() => {
       jwtService.sign.mockReturnValue('access-token');
       configService.get.mockReturnValue('7d');
+      sessionService.createInTransaction.mockResolvedValue({
+        id: 'new-session-id',
+      });
     });
 
     it('deletes all sessions, updates password, and creates new session', async () => {
@@ -824,13 +828,15 @@ describe('AuthService', () => {
 
       const result = await service.changePassword('user-id', 'oldPassword1', 'newPassword1');
 
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id' });
       expect(result.accessToken).toBe('access-token');
       expect(result.refreshToken).toBeDefined();
       expect(result.user.email).toBe('test@example.com');
-      expect(prisma.session.deleteMany).toHaveBeenCalledWith({
-        where: { userId: 'user-id' },
-      });
-      expect(prisma.session.create).toHaveBeenCalledTimes(1);
+      expect(sessionService.deleteByUserIdInTransaction).toHaveBeenCalledWith(
+        prisma,
+        'user-id',
+      );
+      expect(sessionService.createInTransaction).toHaveBeenCalledTimes(1);
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-id' },
         data: { password: expect.stringMatching(/^\$2[aby]\$/) },
@@ -880,23 +886,11 @@ describe('AuthService', () => {
 
       const result = await service.changePassword('user-id', 'oldPassword1', 'oldPassword1');
 
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id' });
       expect(result.accessToken).toBe('access-token');
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-id' },
         data: { password: expect.stringMatching(/^\$2[aby]\$/) },
-      });
-    });
-  });
-
-  describe('cleanupExpiredSessions', () => {
-    it('deletes sessions with expired expiresAt', async () => {
-      prisma.session.deleteMany.mockResolvedValue({ count: 5 });
-
-      const result = await service.cleanupExpiredSessions();
-
-      expect(result.count).toBe(5);
-      expect(prisma.session.deleteMany).toHaveBeenCalledWith({
-        where: { expiresAt: { lt: expect.any(Date) } },
       });
     });
   });

@@ -1,8 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   Res,
@@ -12,6 +15,8 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
 import { AuthService } from './auth.service';
+import { SessionService } from './session.service';
+import { SessionResponseDto } from '@/common/dto/session-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -29,6 +34,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly sessionService: SessionService,
   ) {}
 
   private setRefreshTokenCookie(
@@ -71,9 +77,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginRequestDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
-    const result = await this.authService.login(dto.email, dto.password);
+    const userAgent = req.headers['user-agent'] as string | undefined;
+    const ip = req.ip;
+    const result = await this.authService.login(dto.email, dto.password, { userAgent, ip });
 
     this.setRefreshTokenCookie(res, result.refreshToken, result.expiresAt);
 
@@ -156,10 +165,13 @@ export class AuthController {
     @Body() dto: ChangePasswordRequestDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
+    const userAgent = req.headers['user-agent'] as string | undefined;
+    const ip = req.ip;
     const result = await this.authService.changePassword(
       req.user!.userId,
       dto.currentPassword,
       dto.newPassword,
+      { userAgent, ip },
     );
 
     this.setRefreshTokenCookie(res, result.refreshToken, result.expiresAt);
@@ -168,5 +180,25 @@ export class AuthController {
       accessToken: result.accessToken,
       user: result.user,
     };
+  }
+
+  @Get('sessions')
+  async listSessions(@Req() req: Request): Promise<SessionResponseDto[]> {
+    return this.sessionService.listSessions(req.user!.userId, req.user!.sessionId);
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async terminateSession(@Req() req: Request, @Param('id') id: string): Promise<void> {
+    await this.sessionService.terminateSession(id, {
+      userId: req.user!.userId,
+      currentSessionId: req.user!.sessionId,
+    });
+  }
+
+  @Delete('sessions')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async terminateAllOtherSessions(@Req() req: Request): Promise<void> {
+    await this.sessionService.terminateAllOtherSessions(req.user!.userId, req.user!.sessionId);
   }
 }

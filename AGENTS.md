@@ -54,18 +54,9 @@ When asked to plan a feature (or when in plan mode):
 - Before starting build on any planned feature, create a feature
   branch (feat/* or fix/*) from main. Always pull main before
   branching. Branch name matches the plan file name.
-  Never build on main.
-- When all plan steps are built and reviewed, propose shipping:
-  show the commit message, the PR title, and the list of files to
-  stage. One confirmation — I say yes, you commit, push, and open
-  the PR via gh pr create. Include the plan summary as the PR body.
-- After opening the PR, ask whether to merge now or leave it for
-  review. If merging now, merge via gh, switch to main, and pull.
-- Commit message: type(scope): what
-  (conventional commits: feat, fix, refactor, test, chore, docs).
-- Never git add . — stage explicitly.
-- Never push to main or force-push without confirmation.
-- Never commit .env, secrets, or build artifacts.
+- When all plan steps are built and reviewed, invoke the git-ship
+  agent. It will handle staging, commit message, PR creation, and
+  optionally merging.
 
 ## Gotchas
 

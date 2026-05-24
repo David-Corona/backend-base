@@ -3,10 +3,12 @@ import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 import { Logger } from 'nestjs-pino';
 import { TasksService } from './tasks.service';
 import { AuthService } from '@/modules/auth/auth.service';
+import { SessionService } from '@/modules/auth/session.service';
 
 describe('TasksService', () => {
   let service: TasksService;
   let authService: DeepMockProxy<AuthService>;
+  let sessionService: DeepMockProxy<SessionService>;
   let logger: DeepMockProxy<Logger>;
 
   beforeEach(async () => {
@@ -14,31 +16,33 @@ describe('TasksService', () => {
       providers: [
         TasksService,
         { provide: AuthService, useValue: mockDeep<AuthService>() },
+        { provide: SessionService, useValue: mockDeep<SessionService>() },
         { provide: Logger, useValue: mockDeep<Logger>() },
       ],
     }).compile();
 
     service = module.get(TasksService);
     authService = module.get(AuthService);
+    sessionService = module.get(SessionService);
     logger = module.get(Logger);
   });
 
   describe('cleanupExpiredSessions', () => {
-    it('calls authService.cleanupExpiredSessions and logs success', async () => {
-      authService.cleanupExpiredSessions.mockResolvedValue({ count: 5 });
+    it('calls sessionService.cleanupExpiredSessions and logs success', async () => {
+      sessionService.cleanupExpiredSessions.mockResolvedValue({ count: 5 });
 
       await service.cleanupExpiredSessions();
 
-      expect(authService.cleanupExpiredSessions).toHaveBeenCalledTimes(1);
+      expect(sessionService.cleanupExpiredSessions).toHaveBeenCalledTimes(1);
     });
 
-    it('logs error when authService throws', async () => {
+    it('logs error when sessionService throws', async () => {
       const error = new Error('DB error');
-      authService.cleanupExpiredSessions.mockRejectedValue(error);
+      sessionService.cleanupExpiredSessions.mockRejectedValue(error);
 
       await service.cleanupExpiredSessions();
 
-      expect(authService.cleanupExpiredSessions).toHaveBeenCalledTimes(1);
+      expect(sessionService.cleanupExpiredSessions).toHaveBeenCalledTimes(1);
       expect(logger.error).toHaveBeenCalled();
     });
   });
