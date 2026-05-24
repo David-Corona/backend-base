@@ -6,8 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
-import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
-import { UserAlreadyExistsException } from '@/common/exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
+import { UserAlreadyExistsException, UnauthorizedException } from '@/common/exceptions';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -49,7 +49,7 @@ describe('AuthService', () => {
       description: 'Default user role',
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as never);
+    });
   });
 
   describe('register', () => {
@@ -799,6 +799,92 @@ describe('AuthService', () => {
       const result = await service.resendVerification('test@example.com');
 
       expect(result.message).toBe('If an account with that email exists, we sent a verification link.');
+    });
+  });
+
+  describe('changePassword', () => {
+    beforeEach(() => {
+      jwtService.sign.mockReturnValue('access-token');
+      configService.get.mockReturnValue('7d');
+    });
+
+    it('deletes all sessions, updates password, and creates new session', async () => {
+      const hashedPassword = await hash('oldPassword1', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        email: 'test@example.com',
+        password: hashedPassword,
+        name: null,
+        isActive: true,
+        isVerified: true,
+        roleId: 'role-1',
+        role: { id: 'role-1', name: 'user' },
+        createdAt: new Date('2025-01-01'),
+      } as never);
+
+      const result = await service.changePassword('user-id', 'oldPassword1', 'newPassword1');
+
+      expect(result.accessToken).toBe('access-token');
+      expect(result.refreshToken).toBeDefined();
+      expect(result.user.email).toBe('test@example.com');
+      expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id' },
+      });
+      expect(prisma.session.create).toHaveBeenCalledTimes(1);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-id' },
+        data: { password: expect.stringMatching(/^\$2[aby]\$/) },
+      });
+    });
+
+    it('throws InvalidPasswordException when current password is wrong', async () => {
+      const hashedPassword = await hash('oldPassword1', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        email: 'test@example.com',
+        password: hashedPassword,
+        name: null,
+        isActive: true,
+        isVerified: true,
+        roleId: 'role-1',
+        role: { id: 'role-1', name: 'user' },
+        createdAt: new Date('2025-01-01'),
+      } as never);
+
+      await expect(
+        service.changePassword('user-id', 'wrongOldPassword', 'newPassword1'),
+      ).rejects.toThrow(InvalidPasswordException);
+    });
+
+    it('throws UnauthorizedException when user not found', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.changePassword('nonexistent-id', 'oldPassword1', 'newPassword1'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('allows setting newPassword same as currentPassword', async () => {
+      const hashedPassword = await hash('oldPassword1', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        email: 'test@example.com',
+        password: hashedPassword,
+        name: null,
+        isActive: true,
+        isVerified: true,
+        roleId: 'role-1',
+        role: { id: 'role-1', name: 'user' },
+        createdAt: new Date('2025-01-01'),
+      } as never);
+
+      const result = await service.changePassword('user-id', 'oldPassword1', 'oldPassword1');
+
+      expect(result.accessToken).toBe('access-token');
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-id' },
+        data: { password: expect.stringMatching(/^\$2[aby]\$/) },
+      });
     });
   });
 
