@@ -19,6 +19,7 @@ import { VerifyEmailRequestDto } from './dto/verify-email-request.dto';
 import { ForgotPasswordRequestDto } from './dto/forgot-password-request.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { ResendVerificationRequestDto } from './dto/resend-verification-request.dto';
+import { ChangePasswordRequestDto } from './dto/change-password-request.dto';
 
 const AUTH_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_AUTH ?? '10', 10);
 
@@ -151,5 +152,27 @@ export class AuthController {
     @Body() dto: ResetPasswordRequestDto,
   ): Promise<{ message: string }> {
     return this.authService.resetPassword(dto.token, dto.newPassword);
+  }
+
+  @Post('change-password')
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @Req() req: Request,
+    @Body() dto: ChangePasswordRequestDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponseDto> {
+    const result = await this.authService.changePassword(
+      req.user!.userId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+
+    this.setRefreshTokenCookie(res, result.refreshToken, result.expiresAt);
+
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+    };
   }
 }

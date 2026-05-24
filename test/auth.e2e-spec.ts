@@ -88,7 +88,7 @@ describe('AuthController (e2e)', () => {
     it('creates a new user and returns 201', async () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(201);
 
       expect(response.body).toEqual({
@@ -101,7 +101,7 @@ describe('AuthController (e2e)', () => {
       expect(user).toBeTruthy();
       expect(user!.email).toBe('user@example.com');
       expect(user!.isVerified).toBe(false);
-      expect(user!.password).not.toBe('password123');
+      expect(user!.password).not.toBe('Password123');
 
       const verificationToken = await prisma.verificationToken.findFirst({
         where: { user: { email: 'user@example.com' } },
@@ -127,7 +127,7 @@ describe('AuthController (e2e)', () => {
 
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(409);
 
       expect(response.body).toEqual({
@@ -141,7 +141,7 @@ describe('AuthController (e2e)', () => {
     it('returns 400 for invalid email', async () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'not-an-email', password: 'password123' })
+        .send({ email: 'not-an-email', password: 'Password123' })
         .expect(400);
 
       const body = response.body as ApiErrorResponse;
@@ -151,7 +151,7 @@ describe('AuthController (e2e)', () => {
     it('returns 400 for password too short', async () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'user@example.com', password: 'short' })
+        .send({ email: 'user@example.com', password: 'Short1' })
         .expect(400);
 
       const body = response.body as ApiErrorResponse;
@@ -161,7 +161,7 @@ describe('AuthController (e2e)', () => {
 
   describe('POST /api/auth/login', () => {
     it('returns 200 with access token and refresh cookie for verified user', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -173,7 +173,7 @@ describe('AuthController (e2e)', () => {
 
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(200);
 
       const body = response.body as LoginResponse;
@@ -200,7 +200,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('returns 401 for wrong password', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -212,7 +212,7 @@ describe('AuthController (e2e)', () => {
 
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'wrongpassword' })
+        .send({ email: 'user@example.com', password: 'WrongPass1' })
         .expect(401);
 
       expect(response.body).toEqual({
@@ -226,7 +226,7 @@ describe('AuthController (e2e)', () => {
     it('returns 401 for non-existent user', async () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'nobody@example.com', password: 'password123' })
+        .send({ email: 'nobody@example.com', password: 'Password123' })
         .expect(401);
 
       expect(response.body).toEqual({
@@ -238,7 +238,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('returns 403 for unverified user', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -250,7 +250,7 @@ describe('AuthController (e2e)', () => {
 
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(403);
 
       expect(response.body).toEqual({
@@ -262,7 +262,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('returns 401 for inactive user', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -275,7 +275,7 @@ describe('AuthController (e2e)', () => {
 
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(401);
 
       expect(response.body).toEqual({
@@ -287,7 +287,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('normalizes email to lowercase', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -299,7 +299,7 @@ describe('AuthController (e2e)', () => {
 
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'User@Example.COM', password: 'password123' })
+        .send({ email: 'User@Example.COM', password: 'Password123' })
         .expect(200);
 
       const body = response.body as LoginResponse;
@@ -309,7 +309,7 @@ describe('AuthController (e2e)', () => {
 
   describe('POST /api/auth/refresh', () => {
     it('returns 200 with new access token and rotated refresh cookie', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -321,7 +321,7 @@ describe('AuthController (e2e)', () => {
 
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(200);
 
       const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
@@ -359,7 +359,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('returns 401 when refresh token is reused', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -371,7 +371,7 @@ describe('AuthController (e2e)', () => {
 
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(200);
 
       const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
@@ -398,7 +398,7 @@ describe('AuthController (e2e)', () => {
 
   describe('POST /api/auth/logout', () => {
     it('returns 204 and clears cookie for authenticated user', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -410,7 +410,7 @@ describe('AuthController (e2e)', () => {
 
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(200);
 
       const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
@@ -443,7 +443,7 @@ describe('AuthController (e2e)', () => {
     it('verifies email and allows login', async () => {
       const registerResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(201);
 
       expect(registerResponse.body).toEqual({
@@ -469,7 +469,7 @@ describe('AuthController (e2e)', () => {
 
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(200);
 
       const loginBody = loginResponse.body as LoginResponse;
@@ -493,7 +493,7 @@ describe('AuthController (e2e)', () => {
     it('returns 400 when token is reused', async () => {
       await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(201);
 
       const emailCall = mockEmailService.sendVerificationEmail.mock.calls[0] as [string, string];
@@ -595,7 +595,7 @@ describe('AuthController (e2e)', () => {
     it('sends a new verification email for unverified user', async () => {
       await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(201);
 
       expect(mockEmailService.sendVerificationEmail).toHaveBeenCalledTimes(1);
@@ -650,7 +650,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('returns 200 when user is already verified', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -675,7 +675,7 @@ describe('AuthController (e2e)', () => {
 
   describe('POST /api/auth/forgot-password', () => {
     it('returns 200 and creates a password reset token', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -719,7 +719,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('replaces existing reset tokens when requesting again', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -756,7 +756,7 @@ describe('AuthController (e2e)', () => {
 
   describe('POST /api/auth/reset-password', () => {
     it('resets password and invalidates sessions', async () => {
-      const hashedPassword = await hash('password123', 12);
+      const hashedPassword = await hash('Password123', 12);
       await prisma.user.create({
         data: {
           email: 'user@example.com',
@@ -780,7 +780,7 @@ describe('AuthController (e2e)', () => {
       // Login to create a session
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(200);
 
       const cookies = loginResponse.headers['set-cookie'] as unknown as string[];
@@ -790,7 +790,7 @@ describe('AuthController (e2e)', () => {
       // Reset password
       const resetResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/reset-password')
-        .send({ token: rawToken, newPassword: 'newpassword123' })
+        .send({ token: rawToken, newPassword: 'NewPassword1' })
         .expect(200);
 
       expect(resetResponse.body).toEqual({
@@ -804,7 +804,7 @@ describe('AuthController (e2e)', () => {
       // Old password should not work
       const oldLoginResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'password123' })
+        .send({ email: 'user@example.com', password: 'Password123' })
         .expect(401);
 
       const oldLoginBody = oldLoginResponse.body as ApiErrorResponse;
@@ -813,7 +813,7 @@ describe('AuthController (e2e)', () => {
       // New password should work
       const newLoginResponse = await request(app.getHttpServer() as Server)
         .post('/api/auth/login')
-        .send({ email: 'user@example.com', password: 'newpassword123' })
+        .send({ email: 'user@example.com', password: 'NewPassword1' })
         .expect(200);
 
       const newLoginBody = newLoginResponse.body as LoginResponse;
@@ -832,7 +832,7 @@ describe('AuthController (e2e)', () => {
     it('returns 400 for invalid token', async () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/reset-password')
-        .send({ token: 'invalid-token', newPassword: 'newpassword123' })
+        .send({ token: 'invalid-token', newPassword: 'NewPassword1' })
         .expect(400);
 
       expect(response.body).toEqual({
@@ -867,7 +867,7 @@ describe('AuthController (e2e)', () => {
 
       const response = await request(app.getHttpServer() as Server)
         .post('/api/auth/reset-password')
-        .send({ token: rawToken, newPassword: 'newpassword123' })
+        .send({ token: rawToken, newPassword: 'NewPassword1' })
         .expect(400);
 
       expect(response.body).toEqual({
@@ -886,6 +886,185 @@ describe('AuthController (e2e)', () => {
 
       const body = response.body as ApiErrorResponse;
       expect(body.statusCode).toBe(400);
+    });
+  });
+
+  describe('POST /api/auth/change-password', () => {
+    it('changes password, invalidates old sessions, and returns new tokens', async () => {
+      const hashedPassword = await hash('OldPassword1', 12);
+      await prisma.user.create({
+        data: {
+          email: 'user@example.com',
+          password: hashedPassword,
+          isVerified: true,
+          role: { connect: { name: 'user' } },
+        },
+      });
+
+      const loginResponse = await request(app.getHttpServer() as Server)
+        .post('/api/auth/login')
+        .send({ email: 'user@example.com', password: 'OldPassword1' })
+        .expect(200);
+
+      const accessToken = (loginResponse.body as LoginResponse).accessToken;
+      const sessionCountBefore = await prisma.session.count();
+      expect(sessionCountBefore).toBe(1);
+
+      const changeResponse = await request(app.getHttpServer() as Server)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ currentPassword: 'OldPassword1', newPassword: 'NewPassword1' })
+        .expect(200);
+
+      expect((changeResponse.body as LoginResponse).accessToken).toBeDefined();
+      expect((changeResponse.body as LoginResponse).user.email).toBe('user@example.com');
+
+      // A new session should be created (old one deleted, new one created)
+      const sessionCountAfter = await prisma.session.count();
+      expect(sessionCountAfter).toBe(1);
+
+      // Old refresh token should no longer work
+      await request(app.getHttpServer() as Server)
+        .post('/api/auth/refresh')
+        .set('Cookie', loginResponse.headers['set-cookie'])
+        .expect(401);
+
+      // Old password should not work for login
+      await request(app.getHttpServer() as Server)
+        .post('/api/auth/login')
+        .send({ email: 'user@example.com', password: 'OldPassword1' })
+        .expect(401);
+
+      // New password should work for login
+      await request(app.getHttpServer() as Server)
+        .post('/api/auth/login')
+        .send({ email: 'user@example.com', password: 'NewPassword1' })
+        .expect(200);
+    });
+
+    it('returns 401 when not authenticated', async () => {
+      const response = await request(app.getHttpServer() as Server)
+        .post('/api/auth/change-password')
+        .send({ currentPassword: 'OldPassword1', newPassword: 'NewPassword1' })
+        .expect(401);
+
+      expect(response.body).toEqual({
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Unauthorized',
+        code: 'UNAUTHENTICATED',
+      });
+    });
+
+    it('returns 401 when current password is wrong', async () => {
+      const hashedPassword = await hash('OldPassword1', 12);
+      await prisma.user.create({
+        data: {
+          email: 'user@example.com',
+          password: hashedPassword,
+          isVerified: true,
+          role: { connect: { name: 'user' } },
+        },
+      });
+
+      const loginResponse = await request(app.getHttpServer() as Server)
+        .post('/api/auth/login')
+        .send({ email: 'user@example.com', password: 'OldPassword1' })
+        .expect(200);
+
+      const accessToken = (loginResponse.body as LoginResponse).accessToken;
+
+      const response = await request(app.getHttpServer() as Server)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ currentPassword: 'WrongPassword1', newPassword: 'NewPassword1' })
+        .expect(401);
+
+      expect(response.body).toEqual({
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Current password is incorrect',
+        code: 'INVALID_PASSWORD',
+      });
+    });
+
+    it('returns 400 when new password is weak', async () => {
+      const hashedPassword = await hash('OldPassword1', 12);
+      await prisma.user.create({
+        data: {
+          email: 'user@example.com',
+          password: hashedPassword,
+          isVerified: true,
+          role: { connect: { name: 'user' } },
+        },
+      });
+
+      const loginResponse = await request(app.getHttpServer() as Server)
+        .post('/api/auth/login')
+        .send({ email: 'user@example.com', password: 'OldPassword1' })
+        .expect(200);
+
+      const accessToken = (loginResponse.body as LoginResponse).accessToken;
+
+      await request(app.getHttpServer() as Server)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ currentPassword: 'OldPassword1', newPassword: 'NewPassword' })
+        .expect(400);
+    });
+
+    it('returns 400 when currentPassword is missing', async () => {
+      const hashedPassword = await hash('OldPassword1', 12);
+      await prisma.user.create({
+        data: {
+          email: 'user@example.com',
+          password: hashedPassword,
+          isVerified: true,
+          role: { connect: { name: 'user' } },
+        },
+      });
+
+      const loginResponse = await request(app.getHttpServer() as Server)
+        .post('/api/auth/login')
+        .send({ email: 'user@example.com', password: 'OldPassword1' })
+        .expect(200);
+
+      const accessToken = (loginResponse.body as LoginResponse).accessToken;
+
+      const response = await request(app.getHttpServer() as Server)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ newPassword: 'NewPassword1' })
+        .expect(400);
+
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 400 when currentPassword is empty', async () => {
+      const hashedPassword = await hash('OldPassword1', 12);
+      await prisma.user.create({
+        data: {
+          email: 'user@example.com',
+          password: hashedPassword,
+          isVerified: true,
+          role: { connect: { name: 'user' } },
+        },
+      });
+
+      const loginResponse = await request(app.getHttpServer() as Server)
+        .post('/api/auth/login')
+        .send({ email: 'user@example.com', password: 'OldPassword1' })
+        .expect(200);
+
+      const accessToken = (loginResponse.body as LoginResponse).accessToken;
+
+      const response = await request(app.getHttpServer() as Server)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ currentPassword: '', newPassword: 'NewPassword1' })
+        .expect(400);
+
+      expect(response.body.code).toBe('VALIDATION_ERROR');
     });
   });
 });
