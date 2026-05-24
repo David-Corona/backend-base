@@ -8,6 +8,7 @@ import { EmailService } from '@/modules/email/email.service';
 import { hash, compare } from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
 import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
+import { SessionService } from './session.service';
 import { InternalServerErrorException, UnauthorizedException, UserAlreadyExistsException } from '@/common/exceptions';
 import { getViolatedFields } from '@/common/utils/prisma';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
@@ -45,6 +46,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly logger: Logger,
+    private readonly sessionService: SessionService,
   ) {}
 
   async register(email: string, password: string): Promise<void> {
@@ -112,6 +114,7 @@ export class AuthService {
   async login(
     email: string,
     password: string,
+    metadata?: { userAgent?: string; ip?: string },
   ): Promise<{
     accessToken: string;
     refreshToken: string;
@@ -140,8 +143,6 @@ export class AuthService {
       throw new EmailNotVerifiedException();
     }
 
-    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId });
-
     const refreshToken = generateOpaqueToken();
     const refreshTokenHash = hashToken(refreshToken);
 
@@ -149,13 +150,15 @@ export class AuthService {
       this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') ?? '7d';
     const expiresAt = new Date(Date.now() + parseDuration(refreshTokenExpiry));
 
-    await this.prisma.session.create({
-      data: {
-        userId: user.id,
-        tokenHash: refreshTokenHash,
-        expiresAt,
-      },
+    const session = await this.sessionService.create({
+      userId: user.id,
+      tokenHash: refreshTokenHash,
+      expiresAt,
+      userAgent: metadata?.userAgent,
+      ip: metadata?.ip,
     });
+
+    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: session.id });
 
     const userDto: UserResponseDto = {
       id: user.id,
@@ -184,9 +187,9 @@ export class AuthService {
     const tokenHash = hashToken(refreshToken);
 
     return this.prisma.$transaction(async (tx) => {
-      let session: { id: string; userId: string; expiresAt: Date };
+      let session: { id: string; userId: string; expiresAt: Date; userAgent: string | null; ip: string | null };
       try {
-        session = await tx.session.delete({ where: { tokenHash } });
+        session = await this.sessionService.consumeSessionByTokenHashInTransaction(tx, tokenHash);
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -208,12 +211,12 @@ export class AuthService {
         this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') ?? '7d';
       const expiresAt = new Date(Date.now() + parseDuration(refreshTokenExpiry));
 
-      await tx.session.create({
-        data: {
-          userId: session.userId,
-          tokenHash: newRefreshTokenHash,
-          expiresAt,
-        },
+      const newSession = await this.sessionService.createInTransaction(tx, {
+        userId: session.userId,
+        tokenHash: newRefreshTokenHash,
+        expiresAt,
+        userAgent: session.userAgent,
+        ip: session.ip,
       });
 
       const user = await tx.user.findUnique({
@@ -225,7 +228,7 @@ export class AuthService {
         throw new InvalidRefreshTokenException();
       }
 
-      const accessToken = this.jwtService.sign({ sub: session.userId, roleId: user.roleId });
+      const accessToken = this.jwtService.sign({ sub: session.userId, roleId: user.roleId, sid: newSession.id });
 
       return { accessToken, refreshToken: newRefreshToken, expiresAt };
     });
@@ -233,9 +236,7 @@ export class AuthService {
 
   async logout(refreshToken: string): Promise<void> {
     const tokenHash = hashToken(refreshToken);
-    await this.prisma.session.deleteMany({
-      where: { tokenHash },
-    });
+    await this.sessionService.deleteSessionByTokenHash(tokenHash);
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
@@ -312,9 +313,7 @@ export class AuthService {
         },
       });
 
-      await tx.session.deleteMany({
-        where: { userId: tokenRecord.userId },
-      });
+      await this.sessionService.deleteByUserIdInTransaction(tx, tokenRecord.userId);
 
       return { message: 'Password has been reset successfully' };
     });
@@ -417,6 +416,7 @@ export class AuthService {
     userId: string,
     currentPassword: string,
     newPassword: string,
+    metadata?: { userAgent?: string; ip?: string },
   ): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto; expiresAt: Date }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -448,24 +448,26 @@ export class AuthService {
       this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') ?? '7d';
     const expiresAt = new Date(Date.now() + parseDuration(refreshTokenExpiry));
 
+    let newSession: { id: string };
+
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
         data: { password: hashedPassword },
       });
 
-      await tx.session.deleteMany({ where: { userId } });
+      await this.sessionService.deleteByUserIdInTransaction(tx, userId);
 
-      await tx.session.create({
-        data: {
-          userId,
-          tokenHash: refreshTokenHash,
-          expiresAt,
-        },
+      newSession = await this.sessionService.createInTransaction(tx, {
+        userId,
+        tokenHash: refreshTokenHash,
+        expiresAt,
+        userAgent: metadata?.userAgent,
+        ip: metadata?.ip,
       });
     });
 
-    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId });
+    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: newSession!.id });
 
     const userDto: UserResponseDto = {
       id: user.id,
@@ -478,13 +480,6 @@ export class AuthService {
     };
 
     return { accessToken, refreshToken, user: userDto, expiresAt };
-  }
-
-  async cleanupExpiredSessions(): Promise<{ count: number }> {
-    const result = await this.prisma.session.deleteMany({
-      where: { expiresAt: { lt: new Date() } },
-    });
-    return { count: result.count };
   }
 
   async cleanupExpiredVerificationTokens(): Promise<{ count: number }> {

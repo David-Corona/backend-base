@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Logger } from 'nestjs-pino';
 import { AuthService } from '@/modules/auth/auth.service';
+import { SessionService } from '@/modules/auth/session.service';
 
 @Injectable()
 export class TasksService {
   constructor(
     private readonly authService: AuthService,
+    private readonly sessionService: SessionService,
     private readonly logger: Logger,
   ) {}
 
@@ -14,7 +16,7 @@ export class TasksService {
   async cleanupExpiredSessions(): Promise<void> {
     this.logger.log('Starting expired session cleanup');
     try {
-      const { count } = await this.authService.cleanupExpiredSessions();
+      const { count } = await this.sessionService.cleanupExpiredSessions();
       this.logger.log({ deletedCount: count }, 'Expired session cleanup complete');
     } catch (error) {
       this.logger.error(

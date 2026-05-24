@@ -7,15 +7,17 @@ import {
   Body,
   Param,
   Query,
+  Req,
   HttpCode,
   HttpStatus,
-  Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { UsersService } from './users.service';
+import { SessionService } from '@/modules/auth/session.service';
 import { RequirePermissions } from '@/common/decorators/require-permissions.decorator';
 import { PERMISSIONS } from '@/common/permissions';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
+import { SessionResponseDto } from '@/common/dto/session-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 import type { CreateUserRequestDto } from './dto/create-user-request.dto';
 import type { UpdateUserRequestDto } from './dto/update-user-request.dto';
@@ -25,7 +27,10 @@ import { AssignRoleRequestDto } from './dto/assign-role-request.dto';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly sessionService: SessionService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.USERS_READ)
@@ -96,5 +101,32 @@ export class UsersController {
     @Body() dto: AssignRoleRequestDto,
   ): Promise<UserResponseDto> {
     return this.usersService.assignRole(userId, dto.roleId);
+  }
+
+  @Get(':userId/sessions')
+  @RequirePermissions(PERMISSIONS.USERS_READ)
+  async listUserSessions(
+    @Param('userId') userId: string,
+  ): Promise<SessionResponseDto[]> {
+    return this.sessionService.listSessions(userId);
+  }
+
+  @Delete(':userId/sessions/:id')
+  @RequirePermissions(PERMISSIONS.USERS_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async terminateUserSession(
+    @Param('userId') userId: string,
+    @Param('id') sessionId: string,
+  ): Promise<void> {
+    await this.sessionService.terminateSession(sessionId, { userId });
+  }
+
+  @Delete(':userId/sessions')
+  @RequirePermissions(PERMISSIONS.USERS_WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async terminateAllUserSessions(
+    @Param('userId') userId: string,
+  ): Promise<void> {
+    await this.sessionService.terminateAllSessions(userId);
   }
 }
