@@ -7,8 +7,8 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
 import { hash, compare } from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
-import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException } from './auth.exceptions';
-import { InternalServerErrorException, UserAlreadyExistsException } from '@/common/exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
+import { InternalServerErrorException, UnauthorizedException, UserAlreadyExistsException } from '@/common/exceptions';
 import { getViolatedFields } from '@/common/utils/prisma';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
 
@@ -411,6 +411,73 @@ export class AuthService {
     }
 
     return { message: 'If an account with that email exists, we sent a verification link.' };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto; expiresAt: Date }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: { select: { id: true, name: true } } },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('UNAUTHORIZED', 'Unauthorized');
+    }
+
+    if (!user.isActive) {
+      throw new InvalidCredentialsException();
+    }
+
+    if (!user.isVerified) {
+      throw new EmailNotVerifiedException();
+    }
+
+    const isCurrentPasswordValid = await compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new InvalidPasswordException();
+    }
+
+    const hashedPassword = await hash(newPassword, 12);
+
+    const refreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashToken(refreshToken);
+    const refreshTokenExpiry =
+      this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') ?? '7d';
+    const expiresAt = new Date(Date.now() + parseDuration(refreshTokenExpiry));
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword },
+      });
+
+      await tx.session.deleteMany({ where: { userId } });
+
+      await tx.session.create({
+        data: {
+          userId,
+          tokenHash: refreshTokenHash,
+          expiresAt,
+        },
+      });
+    });
+
+    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId });
+
+    const userDto: UserResponseDto = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isActive: user.isActive,
+      isVerified: user.isVerified,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
+
+    return { accessToken, refreshToken, user: userDto, expiresAt };
   }
 
   async cleanupExpiredSessions(): Promise<{ count: number }> {

@@ -35,3 +35,9 @@ export class InvalidCredentialsException extends UnauthorizedException {
     super('INVALID_CREDENTIALS', 'Invalid email or password');
   }
 }
+
+export class InvalidPasswordException extends UnauthorizedException {
+  constructor() {
+    super('INVALID_PASSWORD', 'Current password is incorrect');
+  }
+}
