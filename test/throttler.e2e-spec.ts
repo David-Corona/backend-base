@@ -8,6 +8,7 @@ import { AppModule } from '@/app.module';
 import { AppExceptionFilter } from '@/common/filters/app-exception.filter';
 import { AuthService } from '@/modules/auth/auth.service';
 import { InvalidRefreshTokenException } from '@/modules/auth/auth.exceptions';
+import { PrismaHealthIndicator } from '@/modules/health/prisma-health-indicator';
 
 interface ApiErrorResponse {
   statusCode: number;
@@ -27,11 +28,19 @@ describe('Rate Limiting (e2e)', () => {
       }),
     };
 
+    const mockPrismaHealth = {
+      pingCheck: jest.fn().mockResolvedValue({
+        database: { status: 'up' },
+      }),
+    };
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(AuthService)
       .useValue(mockAuthService)
+      .overrideProvider(PrismaHealthIndicator)
+      .useValue(mockPrismaHealth)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -123,7 +132,10 @@ describe('Rate Limiting (e2e)', () => {
         .get('/api/health')
         .expect(200);
 
-      expect(health.body).toEqual({ status: 'ok' });
+      expect(health.body).toHaveProperty('status', 'ok');
+      expect(health.body).toHaveProperty('info');
+      expect(health.body).toHaveProperty('error');
+      expect(health.body).toHaveProperty('details');
     });
   });
 });
