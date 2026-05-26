@@ -38,7 +38,7 @@ describe('SessionService', () => {
 
   describe('create', () => {
     it('creates a new session', async () => {
-      (mockPrismaService.session.create as jest.Mock).mockResolvedValue({ id: 'session-id' });
+      (mockPrismaService.session.create).mockResolvedValue({ id: 'session-id' });
 
       const result = await service.create({
         userId: 'user-id',
@@ -54,7 +54,7 @@ describe('SessionService', () => {
 
   describe('createInTransaction', () => {
     it('creates a session within a transaction', async () => {
-      (mockPrismaService.session.create as jest.Mock).mockResolvedValue({ id: 'session-id' });
+      (mockPrismaService.session.create).mockResolvedValue({ id: 'session-id' });
 
       const result = await service.createInTransaction(mockPrismaService as never, {
         userId: 'user-id',
@@ -87,7 +87,7 @@ describe('SessionService', () => {
         expiresAt,
         userAgent: 'Chrome/120',
         ip: '1.2.3.4',
-      } as never);
+      });
 
       const result = await service.consumeSessionByTokenHashInTransaction(mockPrismaService as never, 'hash');
 
