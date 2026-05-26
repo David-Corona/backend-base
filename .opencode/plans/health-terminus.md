@@ -16,7 +16,7 @@ Replace the static `{ status: "ok" }` health endpoint with a proper health check
 
 ## Step 1 (build): Dependencies + Prisma health indicator + module wiring
 
-Add `@nestjs/terminus` and `@nestjs/axios`, create a custom Prisma health indicator service, update the module to import TerminusModule and provide the indicator, and update the controller to use HealthCheckService.
+Add `@nestjs/terminus`, create a custom Prisma health indicator service, update the module to import TerminusModule and provide the indicator, and update the controller to use HealthCheckService.
 
 **Files changed:**
 - `package.json` — add dependencies
