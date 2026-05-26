@@ -15,6 +15,8 @@ export const envSchema = z.object({
   RESEND_API_KEY: z.string().min(1),
   FROM_EMAIL: z.string().email(),
   LOG_REQUEST_BODIES: z.enum(['true', 'false']).optional(),
+  ALLOWED_ORIGINS: z.string().optional(),
+  TRUST_PROXY: z.coerce.number().int().nonnegative().default(0),
 });
 
 export type Env = z.infer<typeof envSchema>;

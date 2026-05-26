@@ -80,7 +80,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
-    const userAgent = req.headers['user-agent'] as string | undefined;
+    const userAgent = req.headers['user-agent'];
     const ip = req.ip;
     const result = await this.authService.login(dto.email, dto.password, { userAgent, ip });
 
@@ -165,7 +165,7 @@ export class AuthController {
     @Body() dto: ChangePasswordRequestDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
-    const userAgent = req.headers['user-agent'] as string | undefined;
+    const userAgent = req.headers['user-agent'];
     const ip = req.ip;
     const result = await this.authService.changePassword(
       req.user!.userId,
