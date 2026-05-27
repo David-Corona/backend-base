@@ -26,6 +26,9 @@ export function configureApp(app: INestApplication, configService: ConfigService
       origin: allowedOrigins.split(',').map((o) => o.trim()).filter(Boolean),
       credentials: true,
     });
+  } else {
+    const logger = app.get(Logger);
+    logger.warn('ALLOWED_ORIGINS is not set. CORS is disabled.');
   }
 
   app.setGlobalPrefix('api');

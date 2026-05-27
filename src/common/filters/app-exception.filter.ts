@@ -8,6 +8,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
+import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import { Logger } from 'nestjs-pino';
 import { AppException } from '../exceptions/app-exception';
@@ -21,6 +22,16 @@ const statusLabels: Record<number, string> = {
   [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
   [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
 };
+
+function mapPrismaErrorToStatus(code: string): number {
+  switch (code) {
+    case 'P2002': return HttpStatus.CONFLICT;
+    case 'P2025': return HttpStatus.NOT_FOUND;
+    case 'P2003': return HttpStatus.BAD_REQUEST;
+    case 'P2011': return HttpStatus.BAD_REQUEST;
+    default: return HttpStatus.INTERNAL_SERVER_ERROR;
+  }
+}
 
 function getStatusLabel(statusCode: number): string {
   return statusLabels[statusCode] ?? 'Internal Server Error';
@@ -103,6 +114,17 @@ export class AppExceptionFilter implements ExceptionFilter {
         'Rate limit exceeded',
       );
       sendErrorResponse(response, statusCode, 'Too Many Requests', 'RATE_LIMITED');
+      return;
+    }
+
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      const statusCode = mapPrismaErrorToStatus(exception.code);
+      const message = 'Database operation failed';
+      this.logger.error(
+        { err: exception, prismaCode: exception.code },
+        'Unhandled Prisma error',
+      );
+      sendErrorResponse(response, statusCode, message, 'DATABASE_ERROR');
       return;
     }
 
