@@ -1,15 +1,13 @@
 # API.md
 
-Defines the contract for all API responses. Every endpoint must follow these shapes without exception. Consistency here is non-negotiable — clients depend on predictable response structures.
-
-All endpoints are prefixed with `/api`. For naming conventions (JSON keys, URL paths, query parameters, boolean and timestamp fields), see `architecture.md`.
+Contract for all API responses.
 
 ---
 
 ## Response Shapes
 
 ### Single Resource
-Return the DTO directly. No wrapper envelope.
+Return the DTO directly. No wrapper.
 
 ```json
 {
@@ -20,12 +18,10 @@ Return the DTO directly. No wrapper envelope.
 }
 ```
 
-### List / Paginated Resource
-Paginated responses always use this envelope:
-
+### List / Paginated
 ```json
 {
-  "data": [ /* array of resource DTOs */ ],
+  "data": [ /* resource DTOs */ ],
   "meta": {
     "total": 100,
     "page": 1,
@@ -36,22 +32,14 @@ Paginated responses always use this envelope:
 ```
 
 ### Empty Success (e.g. logout, delete)
-Return HTTP `204 No Content` with no body.
+HTTP `204 No Content`, no body.
 
 ### Confirmation Success (e.g. verify email, reset password)
-When user-facing feedback is useful, return HTTP `200 OK` with a minimal `{ message }` body:
-
-```json
-{
-  "message": "Email verified successfully"
-}
-```
+HTTP `200 OK` with `{ "message": "..." }`.
 
 ---
 
 ## Error Shape
-
-All errors return this shape, always. The global exception filter is the only place that constructs error responses — controllers and services must never build them manually.
 
 ```json
 {
@@ -62,47 +50,28 @@ All errors return this shape, always. The global exception filter is the only pl
 }
 ```
 
-- `statusCode` — HTTP status code (mirrors the HTTP status)
-- `error` — human-readable HTTP status label
-- `message` — human-readable description of what went wrong
-- `code` — machine-readable error code for client-side handling, `SCREAMING_SNAKE_CASE`
+- `statusCode` — mirrors HTTP status
+- `error` — human-readable status label
+- `message` — what went wrong
+- `code` — machine-readable, `SCREAMING_SNAKE_CASE`
 
-Never expose stack traces, Prisma errors, or internal details in error responses.
+Never expose stack traces, Prisma errors, or internals.
 
 ---
 
 ## Pagination
 
-Query parameters for paginated endpoints:
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `page` | number | 1 | Page number, 1-indexed |
-| `limit` | number | 25 | Items per page, max 100 |
-
----
+| Param | Type | Default | Notes |
+|-------|------|---------|-------|
+| `page` | number | 1 | 1-indexed |
+| `limit` | number | 25 | max 100 |
 
 ## Timestamps
 
-All timestamps are returned in **ISO 8601 UTC** format: `2024-01-01T00:00:00.000Z`. Never return Unix timestamps or locale-formatted dates.
-
----
+ISO 8601 UTC: `2024-01-01T00:00:00.000Z`. 
 
 ## HTTP Status Codes
 
-Use the correct code — do not return `200` for everything. Standard HTTP semantics apply. Two cases that get misused and are worth calling out explicitly:
-
-- Successful delete or logout → **`204 No Content`**, not `200`.
-- Resource conflict (e.g. email already exists, duplicate unique key) → **`409 Conflict`**, not `400`.
-
----
-
-## Auth Headers
-
-Protected endpoints require a Bearer token:
-
-```
-Authorization: Bearer <access_token>
-```
-
-Refresh tokens are passed via HTTP-only cookie, never via headers or request body.
+Standard semantics. Two that get misused:
+- Delete/logout → **`204`**, not `200`.
+- Conflict (duplicate email, unique key) → **`409`**, not `400`.
