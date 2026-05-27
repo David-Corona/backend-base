@@ -62,7 +62,7 @@ describe('AppExceptionFilter', () => {
 
     expect(response.body).toEqual({
       statusCode: 418,
-      error: 'Internal Server Error',
+      error: 'Unknown Error',
       message: 'Short and stout',
       code: 'IM_A_TEAPOT',
     });

@@ -34,7 +34,7 @@ function mapPrismaErrorToStatus(code: string): number {
 }
 
 function getStatusLabel(statusCode: number): string {
-  return statusLabels[statusCode] ?? 'Internal Server Error';
+  return statusLabels[statusCode] ?? 'Unknown Error';
 }
 
 function extractMessage(response: string | { message?: string | string[] }): string {
@@ -103,7 +103,7 @@ export class AppExceptionFilter implements ExceptionFilter {
         { statusCode, message },
         'Unauthorized exception handled',
       );
-      sendErrorResponse(response, statusCode, message, 'UNAUTHENTICATED');
+      sendErrorResponse(response, statusCode, message, 'UNAUTHORIZED');
       return;
     }
 

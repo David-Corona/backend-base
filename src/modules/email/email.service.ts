@@ -48,7 +48,6 @@ export class EmailService implements OnModuleInit {
         { err: error instanceof Error ? error.message : String(error), to, subject: 'Verify your email address' },
         'Failed to send verification email',
       );
-      throw error;
     }
   }
 
@@ -66,7 +65,6 @@ export class EmailService implements OnModuleInit {
         { err: error instanceof Error ? error.message : String(error), to, subject: 'Reset your password' },
         'Failed to send password reset email',
       );
-      throw error;
     }
   }
 }
