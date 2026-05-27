@@ -18,6 +18,6 @@ export class CreateUserRequestDto {
 
   @IsString()
   @IsOptional()
-  @Matches(/^[a-z0-9]{10,40}$/)
+  @Matches(/^[a-z0-9-]{10,40}$/)
   roleId?: string;
 }

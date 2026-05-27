@@ -7,14 +7,15 @@ import {
   Body,
   Param,
   Query,
-  Req,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import { UsersService } from './users.service';
 import { SessionService } from '@/modules/auth/session.service';
+import { NotSelfGuard } from '@/common/guards/not-self.guard';
 import { RequirePermissions } from '@/common/decorators/require-permissions.decorator';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PERMISSIONS } from '@/common/permissions';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
@@ -41,8 +42,7 @@ export class UsersController {
   }
 
   @Get('me')
-  async findMe(@Req() req: Request): Promise<UserResponseDto> {
-    const userId = req.user!.userId;
+  async findMe(@CurrentUser('userId') userId: string): Promise<UserResponseDto> {
     return this.usersService.findOne(userId);
   }
 
@@ -61,10 +61,9 @@ export class UsersController {
 
   @Patch('me')
   async updateMe(
-    @Req() req: Request,
+    @CurrentUser('userId') userId: string,
     @Body() dto: UpdateProfileRequestDto,
   ): Promise<UserResponseDto> {
-    const userId = req.user!.userId;
     return this.usersService.update(userId, dto);
   }
 
@@ -79,13 +78,10 @@ export class UsersController {
 
   @Delete(':id')
   @RequirePermissions(PERMISSIONS.USERS_DELETE)
+  @UseGuards(NotSelfGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deactivate(
-    @Param('id') id: string,
-    @Req() req: Request,
-  ): Promise<void> {
-    const currentUserId = req.user!.userId;
-    await this.usersService.deactivate(id, currentUserId);
+  async deactivate(@Param('id') id: string): Promise<void> {
+    await this.usersService.deactivate(id);
   }
 
   @Patch(':id/activate')

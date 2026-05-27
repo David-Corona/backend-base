@@ -31,7 +31,8 @@ Invariants, not suggestions.
 
 ## Modules
 
-- Feature modules are isolated. No direct cross-module service imports — use interfaces or events.
+- Cross-module imports: Import modules directly. Use concrete services; 
+  add interfaces only for multiple implementations or circular dependency breaks.
 - Shared utilities, decorators, guards, filters, pipes live in `common/`.
 
 ## Side Effects & Config

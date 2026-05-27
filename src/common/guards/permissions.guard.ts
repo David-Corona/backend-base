@@ -1,7 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolesService } from '@/modules/roles/roles.service';
-import { ForbiddenException } from '@/common/exceptions';
+import { ForbiddenException, UnauthorizedException } from '@/common/exceptions';
 import { PERMISSIONS_KEY } from '@/common/decorators/require-permissions.decorator';
 import type { Permission } from '@/common/permissions';
 import { IS_PUBLIC_KEY } from '@/common/decorators/public.decorator';
@@ -35,7 +35,11 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user as { userId: string; roleId: string } | undefined;
 
-    if (!user?.roleId) {
+    if (!user) {
+      throw new UnauthorizedException('AUTH_REQUIRED', 'Authentication required');
+    }
+
+    if (!user.roleId) {
       throw new ForbiddenException('PERMISSION_DENIED', 'Permission denied');
     }
 

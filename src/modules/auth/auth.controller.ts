@@ -14,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
@@ -161,14 +162,15 @@ export class AuthController {
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   async changePassword(
-    @Req() req: Request,
+    @CurrentUser('userId') userId: string,
     @Body() dto: ChangePasswordRequestDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<LoginResponseDto> {
     const userAgent = req.headers['user-agent'];
     const ip = req.ip;
     const result = await this.authService.changePassword(
-      req.user!.userId,
+      userId,
       dto.currentPassword,
       dto.newPassword,
       { userAgent, ip },
@@ -183,22 +185,22 @@ export class AuthController {
   }
 
   @Get('sessions')
-  async listSessions(@Req() req: Request): Promise<SessionResponseDto[]> {
-    return this.sessionService.listSessions(req.user!.userId, req.user!.sessionId);
+  async listSessions(@CurrentUser('userId') userId: string, @CurrentUser('sessionId') sessionId: string): Promise<SessionResponseDto[]> {
+    return this.sessionService.listSessions(userId, sessionId);
   }
 
   @Delete('sessions/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async terminateSession(@Req() req: Request, @Param('id') id: string): Promise<void> {
+  async terminateSession(@Param('id') id: string, @CurrentUser('userId') userId: string, @CurrentUser('sessionId') sessionId: string): Promise<void> {
     await this.sessionService.terminateSession(id, {
-      userId: req.user!.userId,
-      currentSessionId: req.user!.sessionId,
+      userId,
+      currentSessionId: sessionId,
     });
   }
 
   @Delete('sessions')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async terminateAllOtherSessions(@Req() req: Request): Promise<void> {
-    await this.sessionService.terminateAllOtherSessions(req.user!.userId, req.user!.sessionId);
+  async terminateAllOtherSessions(@CurrentUser('userId') userId: string, @CurrentUser('sessionId') sessionId: string): Promise<void> {
+    await this.sessionService.terminateAllOtherSessions(userId, sessionId);
   }
 }

@@ -3,7 +3,7 @@ import { ExecutionContext } from '@nestjs/common';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { PermissionsGuard } from './permissions.guard';
 import { RolesService } from '@/modules/roles/roles.service';
-import { ForbiddenException } from '@/common/exceptions';
+import { ForbiddenException, UnauthorizedException } from '@/common/exceptions';
 import { PERMISSIONS } from '@/common/permissions';
 
 function createMockContext(user?: { userId: string; roleId: string }): ExecutionContext {
@@ -102,6 +102,6 @@ describe('PermissionsGuard', () => {
 
     const context = createMockContext(undefined);
 
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
   });
 });

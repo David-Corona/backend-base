@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import type { Request } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
@@ -18,12 +17,6 @@ describe('AuthController', () => {
     expiresAt: new Date(Date.now() + 86_400_000),
     createdAt: new Date(),
   };
-
-  const mockReq = (overrides?: Partial<Request>): Request =>
-    ({
-      user: { userId: 'user-id', roleId: 'role-1', sessionId: 'session-1' },
-      ...overrides,
-    }) as unknown as Request;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -56,7 +49,7 @@ describe('AuthController', () => {
     it('returns sessions for the current user', async () => {
       sessionService.listSessions.mockResolvedValue([mockSessionResponse]);
 
-      const result = await controller.listSessions(mockReq());
+      const result = await controller.listSessions('user-id', 'session-1');
 
       expect(sessionService.listSessions).toHaveBeenCalledWith('user-id', 'session-1');
       expect(result).toEqual([mockSessionResponse]);
@@ -65,7 +58,7 @@ describe('AuthController', () => {
 
   describe('terminateSession', () => {
     it('terminates a specific session for the current user', async () => {
-      await controller.terminateSession(mockReq(), 'session-2');
+      await controller.terminateSession('session-2', 'user-id', 'session-1');
 
       expect(sessionService.terminateSession).toHaveBeenCalledWith('session-2', {
         userId: 'user-id',
@@ -76,7 +69,7 @@ describe('AuthController', () => {
 
   describe('terminateAllOtherSessions', () => {
     it('terminates all sessions except the current one', async () => {
-      await controller.terminateAllOtherSessions(mockReq());
+      await controller.terminateAllOtherSessions('user-id', 'session-1');
 
       expect(sessionService.terminateAllOtherSessions).toHaveBeenCalledWith('user-id', 'session-1');
     });
