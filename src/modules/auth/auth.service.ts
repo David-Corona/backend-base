@@ -7,7 +7,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
 import { hash, compare } from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
-import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
 import { SessionService } from './session.service';
 import { InternalServerErrorException, UnauthorizedException, UserAlreadyExistsException } from '@/common/exceptions';
 import { getViolatedFields } from '@/common/utils/prisma';
@@ -37,6 +37,8 @@ function generateOpaqueToken(): string {
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
+
+const DUMMY_BCRYPT_HASH = '$2b$12$2Dy9jFRVO1RG0fKqKeKZk.ZirS5VQTyKiLHYFiFDfCxHHgTglPxoy';
 
 @Injectable()
 export class AuthService {
@@ -127,6 +129,7 @@ export class AuthService {
     });
 
     if (!user) {
+      await compare(password, DUMMY_BCRYPT_HASH);
       throw new InvalidCredentialsException();
     }
 
@@ -221,10 +224,10 @@ export class AuthService {
 
       const user = await tx.user.findUnique({
         where: { id: session.userId },
-        select: { roleId: true },
+        select: { roleId: true, isActive: true, isVerified: true },
       });
 
-      if (!user) {
+      if (!user || !user.isActive || !user.isVerified) {
         throw new InvalidRefreshTokenException();
       }
 
@@ -298,7 +301,10 @@ export class AuthService {
       }
 
       if (tokenRecord.expiresAt < new Date()) {
-        throw new TokenExpiredException();
+        await tx.verificationToken.deleteMany({
+          where: { id: tokenRecord.id },
+        });
+        throw new InvalidTokenException();
       }
 
       await tx.user.update({
@@ -335,7 +341,10 @@ export class AuthService {
       }
 
       if (tokenRecord.expiresAt < new Date()) {
-        throw new TokenExpiredException();
+        await tx.verificationToken.deleteMany({
+          where: { id: tokenRecord.id },
+        });
+        throw new InvalidTokenException();
       }
 
       const user = await tx.user.findUnique({

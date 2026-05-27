@@ -7,7 +7,7 @@ import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
-import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
 import { UserAlreadyExistsException, UnauthorizedException } from '@/common/exceptions';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
@@ -335,6 +335,8 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
         roleId: 'role-1',
+        isActive: true,
+        isVerified: true,
       } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
@@ -395,6 +397,58 @@ describe('AuthService', () => {
       ).rejects.toThrow(InvalidRefreshTokenException);
     });
 
+    it('throws InvalidRefreshTokenException when user is inactive', async () => {
+      const rawToken = 'd'.repeat(128);
+
+      sessionService.consumeSessionByTokenHashInTransaction.mockResolvedValue({
+        id: 'session-id',
+        userId: 'user-id',
+        expiresAt: new Date(Date.now() + 86_400_000),
+        userAgent: null,
+        ip: null,
+      });
+      configService.get.mockReturnValue('7d');
+      sessionService.createInTransaction.mockResolvedValue({
+        id: 'new-session-id',
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        roleId: 'role-1',
+        isActive: false,
+        isVerified: true,
+      } as never);
+
+      await expect(
+        service.refresh(rawToken),
+      ).rejects.toThrow(InvalidRefreshTokenException);
+    });
+
+    it('throws InvalidRefreshTokenException when user is not verified', async () => {
+      const rawToken = 'e'.repeat(128);
+
+      sessionService.consumeSessionByTokenHashInTransaction.mockResolvedValue({
+        id: 'session-id',
+        userId: 'user-id',
+        expiresAt: new Date(Date.now() + 86_400_000),
+        userAgent: null,
+        ip: null,
+      });
+      configService.get.mockReturnValue('7d');
+      sessionService.createInTransaction.mockResolvedValue({
+        id: 'new-session-id',
+      });
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        roleId: 'role-1',
+        isActive: true,
+        isVerified: false,
+      } as never);
+
+      await expect(
+        service.refresh(rawToken),
+      ).rejects.toThrow(InvalidRefreshTokenException);
+    });
+
     it('throws InvalidRefreshTokenException when token is reused', async () => {
       const rawToken = 'c'.repeat(128);
 
@@ -412,6 +466,8 @@ describe('AuthService', () => {
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
         roleId: 'role-1',
+        isActive: true,
+        isVerified: true,
       } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
@@ -583,7 +639,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('throws TokenExpiredException when token is expired', async () => {
+    it('throws InvalidTokenException when token is expired and deletes it', async () => {
       const rawToken = 'b'.repeat(128);
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
@@ -595,10 +651,15 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() - 86_400_000),
         createdAt: new Date(),
       });
+      prisma.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
 
       await expect(service.resetPassword(rawToken, 'newpassword123')).rejects.toThrow(
-        TokenExpiredException,
+        InvalidTokenException,
       );
+
+      expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'token-id' },
+      });
     });
   });
 
@@ -658,7 +719,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('throws TokenExpiredException when token is expired', async () => {
+    it('throws InvalidTokenException when token is expired and deletes it', async () => {
       const rawToken = 'b'.repeat(128);
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
@@ -670,10 +731,15 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() - 86_400_000),
         createdAt: new Date(),
       });
+      prisma.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
 
       await expect(service.verifyEmail(rawToken)).rejects.toThrow(
-        TokenExpiredException,
+        InvalidTokenException,
       );
+
+      expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
+        where: { id: 'token-id' },
+      });
     });
 
     it('throws AlreadyVerifiedException when user is already verified', async () => {

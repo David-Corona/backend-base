@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsString } from 'class-validator';
-import { IsPassword } from '@/common/decorators/is-password.decorator';
+import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class LoginRequestDto {
   @IsEmail()
@@ -8,6 +7,6 @@ export class LoginRequestDto {
   email!: string;
 
   @IsString()
-  @IsPassword()
+  @IsNotEmpty()
   password!: string;
 }
