@@ -119,7 +119,7 @@ describe('buildResSerializer', () => {
 });
 
 describe('buildGenReqId', () => {
-  it('uses existing X-Request-Id header when present', () => {
+  it('always generates a new UUID regardless of incoming header', () => {
     const genReqId = buildGenReqId();
     const req = {
       headers: { 'x-request-id': 'existing-id-123' },
@@ -128,11 +128,13 @@ describe('buildGenReqId', () => {
 
     const id = genReqId(req, res);
 
-    expect(id).toBe('existing-id-123');
-    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', 'existing-id-123');
+    expect(id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', id);
   });
 
-  it('generates a UUID when no X-Request-Id header is present', () => {
+  it('generates a UUID on every call', () => {
     const genReqId = buildGenReqId();
     const req = { headers: {} } as any;
     const res = { setHeader: jest.fn() } as any;

@@ -33,3 +33,6 @@ Do not:
 - Flag issues outside the changed code unless directly broken by it.
 - Flag personal preferences as issues.
 - Pad the review. If the code is clean, say so in one line.
+
+## Known false positives
+- parseInt(process.env.RATE_LIMIT_AUTH) — safe because Zod validates env vars before module evaluation; the value is always a valid integer string when parseInt runs.

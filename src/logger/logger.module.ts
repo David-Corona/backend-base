@@ -68,10 +68,9 @@ export function buildGenReqId(): (
   req: import('http').IncomingMessage,
   res: import('http').ServerResponse,
 ) => string {
-  return (req, res) => {
-    const request = req as Request;
+  return (_req, res) => {
     const response = res as Response;
-    const id = request.headers['x-request-id']?.toString() ?? randomUUID();
+    const id = randomUUID();
     response.setHeader('X-Request-Id', id);
     return id;
   };
