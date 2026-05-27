@@ -449,7 +449,7 @@ describe('UsersController (e2e)', () => {
       const response = await request(app.getHttpServer() as Server)
         .delete(`/api/users/${adminId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(400);
+        .expect(403);
 
       const body = response.body as ApiErrorResponse;
       expect(body.code).toBe('CANNOT_DEACTIVATE_SELF');

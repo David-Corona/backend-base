@@ -1,10 +1,9 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength, ValidateIf } from 'class-validator';
 
-/** Self-service DTO for a user updating their own profile.
- *  Currently mirrors UpdateUserRequestDto but kept separate for future divergence. */
 export class UpdateProfileRequestDto {
-  @IsString()
   @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsString()
   @MaxLength(255)
-  name?: string;
+  name?: string | null;
 }

@@ -4,7 +4,6 @@ import { hash } from 'bcryptjs';
 import { PrismaService } from '@/prisma/prisma.service';
 import { UserNotFoundException, UserAlreadyExistsException } from '@/common/exceptions';
 import { RoleNotFoundException } from '@/modules/roles/roles.exceptions';
-import { DeactivatedSelfException } from './users.exceptions';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 import { paginate } from '@/common/utils/pagination';
@@ -13,13 +12,22 @@ import type { UpdateUserRequestDto } from './dto/update-user-request.dto';
 import { UserStatusFilter, UsersPaginationQueryDto } from './dto/users-pagination-query.dto';
 import { getViolatedFields } from '@/common/utils/prisma';
 
+const userSelect = {
+  id: true,
+  email: true,
+  name: true,
+  isActive: true,
+  isVerified: true,
+  createdAt: true,
+  role: { select: { id: true, name: true } },
+} as const;
+
 function toUserResponseDto(user: {
   id: string;
   email: string;
   name: string | null;
   isActive: boolean;
   isVerified: boolean;
-  roleId: string;
   role: { id: string; name: string };
   createdAt: Date;
 }): UserResponseDto {
@@ -67,7 +75,7 @@ export class UsersService {
           skip,
           take,
           orderBy: { createdAt: 'desc' },
-          include: { role: { select: { id: true, name: true } } },
+          select: userSelect,
         }),
       query.page,
       query.limit,
@@ -82,7 +90,7 @@ export class UsersService {
   async findOne(id: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { role: { select: { id: true, name: true } } },
+      select: userSelect,
     });
 
     if (!user) {
@@ -118,7 +126,7 @@ export class UsersService {
           isVerified: true,
           roleId,
         },
-        include: { role: { select: { id: true, name: true } } },
+        select: userSelect,
       });
 
       return toUserResponseDto(user);
@@ -146,7 +154,7 @@ export class UsersService {
       const user = await this.prisma.user.update({
         where: { id },
         data: updateData,
-        include: { role: { select: { id: true, name: true } } },
+        select: userSelect,
       });
 
       return toUserResponseDto(user);
@@ -161,16 +169,13 @@ export class UsersService {
     }
   }
 
-  async deactivate(id: string, currentUserId: string): Promise<void> {
-    if (id === currentUserId) {
-      throw new DeactivatedSelfException();
-    }
-
+  async deactivate(id: string): Promise<void> {
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.user.update({
           where: { id },
           data: { isActive: false },
+          select: { id: true },
         });
 
         await tx.session.deleteMany({
@@ -193,7 +198,7 @@ export class UsersService {
       const user = await this.prisma.user.update({
         where: { id },
         data: { isActive: true },
-        include: { role: { select: { id: true, name: true } } },
+        select: userSelect,
       });
 
       return toUserResponseDto(user);
@@ -222,7 +227,7 @@ export class UsersService {
       const user = await this.prisma.user.update({
         where: { id: userId },
         data: { roleId },
-        include: { role: { select: { id: true, name: true } } },
+        select: userSelect,
       });
 
       return toUserResponseDto(user);

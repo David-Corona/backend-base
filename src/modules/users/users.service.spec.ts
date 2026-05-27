@@ -4,7 +4,6 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { UsersService } from './users.service';
 import { UserNotFoundException, UserAlreadyExistsException } from '@/common/exceptions';
 import { RoleNotFoundException } from '@/modules/roles/roles.exceptions';
-import { DeactivatedSelfException } from './users.exceptions';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 import { UserStatusFilter } from './dto/users-pagination-query.dto';
@@ -347,7 +346,7 @@ describe('UsersService', () => {
       prisma.user.update.mockResolvedValue({ ...mockUser, isActive: false });
       prisma.session.deleteMany.mockResolvedValue({ count: 2 });
 
-      await service.deactivate('user-2', 'admin-1');
+      await service.deactivate('user-2');
 
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -360,10 +359,6 @@ describe('UsersService', () => {
       });
     });
 
-    it('throws DeactivatedSelfException when deactivating own account', async () => {
-      await expect(service.deactivate('admin-1', 'admin-1')).rejects.toThrow(DeactivatedSelfException);
-    });
-
     it('throws UserNotFoundException when user does not exist', async () => {
       const error = new Prisma.PrismaClientKnownRequestError('Record not found', {
         code: 'P2025',
@@ -371,7 +366,7 @@ describe('UsersService', () => {
       });
       prisma.$transaction.mockRejectedValue(error);
 
-      await expect(service.deactivate('nonexistent', 'admin-1')).rejects.toThrow(UserNotFoundException);
+      await expect(service.deactivate('nonexistent')).rejects.toThrow(UserNotFoundException);
     });
   });
 
