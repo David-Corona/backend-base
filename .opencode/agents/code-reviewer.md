@@ -36,3 +36,5 @@ Do not:
 
 ## Known false positives
 - parseInt(process.env.RATE_LIMIT_AUTH) — safe because Zod validates env vars before module evaluation; the value is always a valid integer string when parseInt runs.
+- `response.locals.errorResponseBody` in `app-exception.filter.ts:62` — this is a standard Express pattern.
+- `totalPages: 0` in `pagination.ts:21` — `Math.ceil(0 / limit)` returns 0, which is mathematically correct.
