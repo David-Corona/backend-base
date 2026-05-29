@@ -20,7 +20,7 @@ export class TasksService {
       this.logger.log({ deletedCount: count }, 'Expired session cleanup complete');
     } catch (error) {
       this.logger.error(
-        { err: error instanceof Error ? error.message : String(error) },
+        { err: error instanceof Error ? error : String(error) },
         'Expired session cleanup failed',
       );
     }
@@ -34,7 +34,7 @@ export class TasksService {
       this.logger.log({ deletedCount: count }, 'Expired verification token cleanup complete');
     } catch (error) {
       this.logger.error(
-        { err: error instanceof Error ? error.message : String(error) },
+        { err: error instanceof Error ? error : String(error) },
         'Expired verification token cleanup failed',
       );
     }

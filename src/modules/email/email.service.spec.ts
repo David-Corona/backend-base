@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { Logger } from 'nestjs-pino';
 import { EmailService } from './email.service';
 import { Resend } from 'resend';
 import * as fs from 'fs';
@@ -33,13 +32,6 @@ describe('EmailService', () => {
     }),
   };
 
-  const mockLogger = {
-    error: jest.fn(),
-    warn: jest.fn(),
-    info: jest.fn(),
-    debug: jest.fn(),
-  };
-
   beforeEach(async () => {
     mockSend = jest.fn().mockResolvedValue({ id: 'email-id' });
     (Resend as jest.Mock).mockImplementation(() => ({
@@ -48,10 +40,10 @@ describe('EmailService', () => {
 
     (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
       if (path.includes('verification-email.hbs')) {
-        return '<html><body>Token: {{token}}</body></html>';
+        return '<html><body>Token: {{token}} Expires: {{expiresIn}}</body></html>';
       }
       if (path.includes('password-reset-email.hbs')) {
-        return '<html><body>Reset: {{token}}</body></html>';
+        return '<html><body>Reset: {{token}} Expires: {{expiresIn}}</body></html>';
       }
       throw new Error(`Unknown template: ${path}`);
     });
@@ -60,7 +52,6 @@ describe('EmailService', () => {
       providers: [
         EmailService,
         { provide: ConfigService, useValue: mockConfigService },
-        { provide: Logger, useValue: mockLogger },
       ],
     }).compile();
 
@@ -74,7 +65,7 @@ describe('EmailService', () => {
 
   describe('sendVerificationEmail', () => {
     it('sends verification email with rendered template', async () => {
-      await service.sendVerificationEmail('user@example.com', 'abc123');
+      await service.sendVerificationEmail('user@example.com', 'abc123', '24 hours');
 
       expect(mockSend).toHaveBeenCalledTimes(1);
       const call = mockSend.mock.calls[0] as [Record<string, unknown>];
@@ -82,14 +73,22 @@ describe('EmailService', () => {
         from: 'noreply@example.com',
         to: 'user@example.com',
         subject: 'Verify your email address',
-        html: '<html><body>Token: abc123</body></html>',
+        html: '<html><body>Token: abc123 Expires: 24 hours</body></html>',
       });
+    });
+
+    it('propagates errors from resend', async () => {
+      mockSend.mockRejectedValue(new Error('API failure'));
+
+      await expect(
+        service.sendVerificationEmail('user@example.com', 'abc123', '24 hours'),
+      ).rejects.toThrow('API failure');
     });
   });
 
   describe('sendPasswordResetEmail', () => {
     it('sends password reset email with rendered template', async () => {
-      await service.sendPasswordResetEmail('user@example.com', 'reset456');
+      await service.sendPasswordResetEmail('user@example.com', 'reset456', '1 hour');
 
       expect(mockSend).toHaveBeenCalledTimes(1);
       const call = mockSend.mock.calls[0] as [Record<string, unknown>];
@@ -97,8 +96,16 @@ describe('EmailService', () => {
         from: 'noreply@example.com',
         to: 'user@example.com',
         subject: 'Reset your password',
-        html: '<html><body>Reset: reset456</body></html>',
+        html: '<html><body>Reset: reset456 Expires: 1 hour</body></html>',
       });
+    });
+
+    it('propagates errors from resend', async () => {
+      mockSend.mockRejectedValue(new Error('API failure'));
+
+      await expect(
+        service.sendPasswordResetEmail('user@example.com', 'reset456', '1 hour'),
+      ).rejects.toThrow('API failure');
     });
   });
 });

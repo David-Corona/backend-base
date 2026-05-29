@@ -4,11 +4,12 @@ import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+import { humanizeDuration, parseDuration } from './auth.service';
 import { SessionService } from './session.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
 import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
-import { UserAlreadyExistsException, UnauthorizedException } from '@/common/exceptions';
+import { UserAlreadyExistsException, UnauthorizedException, InternalServerErrorException } from '@/common/exceptions';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
@@ -104,9 +105,10 @@ describe('AuthService', () => {
       ).toBe('test-id');
 
       expect(emailService.sendVerificationEmail.mock.calls.length).toBe(1);
-      const emailCall = emailService.sendVerificationEmail.mock.calls[0] as [string, string];
+      const emailCall = emailService.sendVerificationEmail.mock.calls[0] as [string, string, string];
       expect(emailCall[0]).toBe('test@example.com');
       expect(emailCall[1]).toMatch(/^[a-f0-9]{128}$/);
+      expect(emailCall[2]).toBe('24 hours');
     });
 
     it('succeeds silently when email send fails', async () => {
@@ -535,9 +537,10 @@ describe('AuthService', () => {
       expect(prisma.verificationToken.deleteMany.mock.calls.length).toBe(1);
       expect(prisma.verificationToken.create.mock.calls.length).toBe(1);
       expect(emailService.sendPasswordResetEmail.mock.calls.length).toBe(1);
-      const emailCall = emailService.sendPasswordResetEmail.mock.calls[0] as [string, string];
+      const emailCall = emailService.sendPasswordResetEmail.mock.calls[0] as [string, string, string];
       expect(emailCall[0]).toBe('test@example.com');
       expect(emailCall[1]).toMatch(/^[a-f0-9]{128}$/);
+      expect(emailCall[2]).toBe('1 hour');
     });
 
     it('returns same message when user not found', async () => {
@@ -803,6 +806,10 @@ describe('AuthService', () => {
       expect(prisma.verificationToken.deleteMany.mock.calls.length).toBe(1);
       expect(prisma.verificationToken.create.mock.calls.length).toBe(1);
       expect(emailService.sendVerificationEmail.mock.calls.length).toBe(1);
+      const emailCall = emailService.sendVerificationEmail.mock.calls[0] as [string, string, string];
+      expect(emailCall[0]).toBe('test@example.com');
+      expect(emailCall[1]).toMatch(/^[a-f0-9]{128}$/);
+      expect(emailCall[2]).toBe('24 hours');
     });
 
     it('returns same message when user not found', async () => {
@@ -971,6 +978,77 @@ describe('AuthService', () => {
       expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
         where: { expiresAt: { lt: expect.any(Date) } },
       });
+    });
+  });
+
+  describe('humanizeDuration', () => {
+    it('returns singular form for day', () => {
+      expect(humanizeDuration('1d')).toBe('1 day');
+    });
+
+    it('returns plural form for days', () => {
+      expect(humanizeDuration('7d')).toBe('7 days');
+    });
+
+    it('returns singular form for hour', () => {
+      expect(humanizeDuration('1h')).toBe('1 hour');
+    });
+
+    it('returns plural form for hours', () => {
+      expect(humanizeDuration('24h')).toBe('24 hours');
+    });
+
+    it('returns singular form for minute', () => {
+      expect(humanizeDuration('1m')).toBe('1 minute');
+    });
+
+    it('returns plural form for minutes', () => {
+      expect(humanizeDuration('30m')).toBe('30 minutes');
+    });
+
+    it('returns singular form for second', () => {
+      expect(humanizeDuration('1s')).toBe('1 second');
+    });
+
+    it('returns plural form for seconds', () => {
+      expect(humanizeDuration('45s')).toBe('45 seconds');
+    });
+
+    it('returns raw string for invalid format', () => {
+      expect(humanizeDuration('invalid')).toBe('invalid');
+    });
+
+    it('returns raw string for format without unit', () => {
+      expect(humanizeDuration('24')).toBe('24');
+    });
+  });
+
+  describe('parseDuration', () => {
+    it('parses days', () => {
+      expect(parseDuration('1d')).toBe(86_400_000);
+      expect(parseDuration('7d')).toBe(604_800_000);
+    });
+
+    it('parses hours', () => {
+      expect(parseDuration('1h')).toBe(3_600_000);
+      expect(parseDuration('24h')).toBe(86_400_000);
+    });
+
+    it('parses minutes', () => {
+      expect(parseDuration('1m')).toBe(60_000);
+      expect(parseDuration('30m')).toBe(1_800_000);
+    });
+
+    it('parses seconds', () => {
+      expect(parseDuration('1s')).toBe(1_000);
+      expect(parseDuration('60s')).toBe(60_000);
+    });
+
+    it('throws InternalServerErrorException for invalid format', () => {
+      expect(() => parseDuration('invalid')).toThrow(InternalServerErrorException);
+      expect(() => parseDuration('invalid')).toThrow('Invalid duration format: invalid');
+      expect(() => parseDuration('')).toThrow(InternalServerErrorException);
+      expect(() => parseDuration('24')).toThrow(InternalServerErrorException);
     });
   });
 });

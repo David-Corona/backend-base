@@ -13,7 +13,7 @@ import { InternalServerErrorException, UnauthorizedException, UserAlreadyExistsE
 import { getViolatedFields } from '@/common/utils/prisma';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
 
-function parseDuration(duration: string): number {
+export function parseDuration(duration: string): number {
   const units: Record<string, number> = {
     d: 86_400_000,
     h: 3_600_000,
@@ -28,6 +28,15 @@ function parseDuration(duration: string): number {
     );
   }
   return parseInt(match[1], 10) * (units[match[2]] ?? 0);
+}
+
+export function humanizeDuration(duration: string): string {
+  const labels: Record<string, string> = { d: 'day', h: 'hour', m: 'minute', s: 'second' };
+  const match = duration.match(/^(\d+)([dhms])$/);
+  if (!match) return duration;
+  const value = parseInt(match[1], 10);
+  const unit = labels[match[2]];
+  return `${value} ${value === 1 ? unit : `${unit}s`}`;
 }
 
 function generateOpaqueToken(): string {
@@ -94,7 +103,7 @@ export class AuthService {
       });
 
       try {
-        await this.emailService.sendVerificationEmail(email, verificationToken);
+        await this.emailService.sendVerificationEmail(email, verificationToken, humanizeDuration(verificationExpiry));
       } catch (error) {
         this.logger.warn(
           { err: error instanceof Error ? error : String(error), email },
@@ -273,7 +282,7 @@ export class AuthService {
     });
 
     try {
-      await this.emailService.sendPasswordResetEmail(email, resetToken);
+      await this.emailService.sendPasswordResetEmail(email, resetToken, humanizeDuration(expiryDuration));
     } catch (error) {
       this.logger.warn(
         { err: error instanceof Error ? error : String(error), email },
@@ -410,7 +419,7 @@ export class AuthService {
     });
 
     try {
-      await this.emailService.sendVerificationEmail(email, verificationToken);
+      await this.emailService.sendVerificationEmail(email, verificationToken, humanizeDuration(verificationExpiry));
     } catch (error) {
       this.logger.warn(
         { err: error instanceof Error ? error : String(error), email },

@@ -34,6 +34,10 @@ describe('TasksService', () => {
       await service.cleanupExpiredSessions();
 
       expect(sessionService.cleanupExpiredSessions).toHaveBeenCalledTimes(1);
+      expect(logger.log).toHaveBeenCalledWith(
+        { deletedCount: 5 },
+        'Expired session cleanup complete',
+      );
     });
 
     it('logs error when sessionService throws', async () => {
@@ -43,7 +47,10 @@ describe('TasksService', () => {
       await service.cleanupExpiredSessions();
 
       expect(sessionService.cleanupExpiredSessions).toHaveBeenCalledTimes(1);
-      expect(logger.error).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: error },
+        'Expired session cleanup failed',
+      );
     });
   });
 
@@ -54,6 +61,10 @@ describe('TasksService', () => {
       await service.cleanupExpiredVerificationTokens();
 
       expect(authService.cleanupExpiredVerificationTokens).toHaveBeenCalledTimes(1);
+      expect(logger.log).toHaveBeenCalledWith(
+        { deletedCount: 3 },
+        'Expired verification token cleanup complete',
+      );
     });
 
     it('logs error when authService throws', async () => {
@@ -63,7 +74,10 @@ describe('TasksService', () => {
       await service.cleanupExpiredVerificationTokens();
 
       expect(authService.cleanupExpiredVerificationTokens).toHaveBeenCalledTimes(1);
-      expect(logger.error).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: error },
+        'Expired verification token cleanup failed',
+      );
     });
   });
 });
