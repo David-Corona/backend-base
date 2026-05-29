@@ -20,7 +20,7 @@ export class RoleInUseException extends ConflictException {
 
 export class RoleProtectedException extends ConflictException {
   constructor() {
-    super('ROLE_PROTECTED', 'Cannot delete a system role');
+    super('ROLE_PROTECTED', 'Cannot modify or delete a system role');
   }
 }
 
