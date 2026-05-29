@@ -88,6 +88,35 @@ describe('RolesService', () => {
       ).rejects.toThrow(InvalidPermissionsException);
     });
 
+    it('deduplicates permissions and does not throw when duplicates are present', async () => {
+      const mockRole = {
+        id: 'role-1',
+        name: 'editor',
+        description: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      prisma.role.create.mockResolvedValue(mockRole);
+      prisma.permission.findMany.mockResolvedValue([
+        { id: 'perm-1' },
+      ] as never);
+      prisma.rolePermission.createMany.mockResolvedValue({ count: 1 });
+      prisma.role.findUnique.mockResolvedValue({
+        ...mockRole,
+        permissions: [
+          { permission: { key: PERMISSIONS.ROLES_READ } },
+        ],
+      } as never);
+
+      const result = await service.create({
+        name: 'editor',
+        permissions: [PERMISSIONS.ROLES_READ, PERMISSIONS.ROLES_READ],
+      });
+
+      expect(result.name).toBe('editor');
+    });
+
     it('throws RoleAlreadyExistsException on duplicate name', async () => {
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed',
@@ -228,6 +257,45 @@ describe('RolesService', () => {
         }),
       ).rejects.toThrow(InvalidPermissionsException);
     });
+
+    it('throws RoleProtectedException when trying to rename a system role', async () => {
+      prisma.role.findUnique.mockResolvedValue({ id: 'role-admin', name: 'admin' } as never);
+
+      await expect(
+        service.update('role-admin', { name: 'superadmin' }),
+      ).rejects.toThrow(RoleProtectedException);
+    });
+
+    it('throws RoleProtectedException when trying to change permissions on a system role', async () => {
+      prisma.role.findUnique.mockResolvedValue({ id: 'role-admin', name: 'admin' } as never);
+
+      await expect(
+        service.update('role-admin', { permissions: [] }),
+      ).rejects.toThrow(RoleProtectedException);
+    });
+
+    it('allows description-only updates on system roles', async () => {
+      prisma.role.findUnique.mockResolvedValue({ id: 'role-admin', name: 'admin' } as never);
+      prisma.role.update.mockResolvedValue({
+        id: 'role-admin',
+        name: 'admin',
+        description: 'Updated desc',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      prisma.role.findUnique.mockResolvedValue({
+        id: 'role-admin',
+        name: 'admin',
+        description: 'Updated desc',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        permissions: [{ permission: { key: PERMISSIONS.ROLES_READ } }],
+      } as never);
+
+      const result = await service.update('role-admin', { description: 'Updated desc' });
+
+      expect(result.description).toBe('Updated desc');
+    });
   });
 
   describe('remove', () => {
@@ -308,6 +376,14 @@ describe('RolesService', () => {
 
       expect(result).toContain(PERMISSIONS.ROLES_READ);
       expect(result).toContain(PERMISSIONS.ROLES_WRITE);
+    });
+
+    it('returns an empty array for a non-existent role (fail-closed)', async () => {
+      prisma.rolePermission.findMany.mockResolvedValue([] as never);
+
+      const result = await service.getPermissionsForRole('nonexistent-role');
+
+      expect(result).toEqual([]);
     });
   });
 

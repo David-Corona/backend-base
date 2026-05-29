@@ -22,6 +22,8 @@ export class RolesService {
 
   async create(dto: CreateRoleRequestDto): Promise<RoleResponseDto> {
     try {
+      const uniquePermissions = [...new Set(dto.permissions)];
+
       const role = await this.prisma.$transaction(async (tx) => {
         const newRole = await tx.role.create({
           data: {
@@ -30,13 +32,13 @@ export class RolesService {
           },
         });
 
-        if (dto.permissions.length > 0) {
+        if (uniquePermissions.length > 0) {
           const permissions = await tx.permission.findMany({
-            where: { key: { in: dto.permissions } },
+            where: { key: { in: uniquePermissions } },
             select: { id: true },
           });
 
-          if (permissions.length !== dto.permissions.length) {
+          if (permissions.length !== uniquePermissions.length) {
             throw new InvalidPermissionsException();
           }
 
@@ -133,11 +135,20 @@ export class RolesService {
       await this.prisma.$transaction(async (tx) => {
         const role = await tx.role.findUnique({
           where: { id },
-          select: { id: true },
+          select: { id: true, name: true },
         });
 
         if (!role) {
           throw new RoleNotFoundException();
+        }
+
+        if (['admin', 'user'].includes(role.name)) {
+          if (dto.name !== undefined && dto.name !== role.name) {
+            throw new RoleProtectedException();
+          }
+          if (dto.permissions !== undefined) {
+            throw new RoleProtectedException();
+          }
         }
 
         const updateData: Prisma.RoleUpdateInput = {};
@@ -152,17 +163,19 @@ export class RolesService {
         }
 
         if (dto.permissions !== undefined) {
+          const uniquePermissions = [...new Set(dto.permissions)];
+
           await tx.rolePermission.deleteMany({
             where: { roleId: id },
           });
 
-          if (dto.permissions.length > 0) {
+          if (uniquePermissions.length > 0) {
             const permissions = await tx.permission.findMany({
-              where: { key: { in: dto.permissions } },
+              where: { key: { in: uniquePermissions } },
               select: { id: true },
             });
 
-            if (permissions.length !== dto.permissions.length) {
+            if (permissions.length !== uniquePermissions.length) {
               throw new InvalidPermissionsException();
             }
 
@@ -220,7 +233,8 @@ export class RolesService {
 
   /**
    * Returns permission keys for a given role.
-   * If the role does not exist, returns an empty array (fail-closed).
+   * Returns an empty array if the role has no permissions or does not exist.
+   * Callers must treat an empty result as "no access" for fail-closed semantics.
    */
   async getPermissionsForRole(roleId: string): Promise<string[]> {
     const rolePermissions = await this.prisma.rolePermission.findMany({
@@ -237,7 +251,7 @@ export class RolesService {
     page: number,
     limit: number,
   ): Promise<PaginatedResponse<PermissionResponseDto>> {
-    return paginate(
+    const result = await paginate(
       () => this.prisma.permission.count(),
       (skip, take) =>
         this.prisma.permission.findMany({
@@ -248,5 +262,17 @@ export class RolesService {
       page,
       limit,
     );
+
+    return {
+      data: result.data.map((p) => ({
+        id: p.id,
+        key: p.key,
+        name: p.name,
+        description: p.description,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      })),
+      meta: result.meta,
+    };
   }
 }
