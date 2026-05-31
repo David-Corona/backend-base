@@ -75,7 +75,7 @@ async function main(): Promise<void> {
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('Seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {

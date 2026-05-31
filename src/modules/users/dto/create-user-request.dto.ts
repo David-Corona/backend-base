@@ -1,14 +1,13 @@
-import { IsEmail, IsString, IsOptional, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsString, IsOptional, MaxLength, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsPassword } from '@/common/decorators/is-password.decorator';
 
 export class CreateUserRequestDto {
   @IsEmail()
   @Transform(({ value }: { value: string }) => value?.toLowerCase().trim())
   email!: string;
 
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
+  @IsPassword()
   password!: string;
 
   @IsString()

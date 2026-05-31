@@ -3,7 +3,7 @@ import { UnauthorizedException } from '@/common/exceptions';
 
 export const CurrentUser = createParamDecorator(
   (
-    data: keyof { userId: string; roleId: string; sessionId: string } | undefined,
+    data: keyof { userId: string; roleId: string; sessionId: string; permissions: string[] } | undefined,
     ctx: ExecutionContext,
   ) => {
     const request = ctx.switchToHttp().getRequest();

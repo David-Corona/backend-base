@@ -19,6 +19,7 @@ describe('UsersController', () => {
     isVerified: true,
     role: { id: 'role-1', name: 'user' },
     createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
   };
 
   const mockSessionResponse: SessionResponseDto = {
@@ -28,6 +29,7 @@ describe('UsersController', () => {
     ip: '127.0.0.1',
     expiresAt: new Date(),
     createdAt: new Date(),
+    updatedAt: new Date(),
   };
 
   beforeEach(async () => {
@@ -169,13 +171,17 @@ describe('UsersController', () => {
   });
 
   describe('listUserSessions', () => {
-    it('returns sessions for the given user', async () => {
-      sessionService.listSessions.mockResolvedValue([mockSessionResponse]);
+    it('returns paginated sessions for the given user', async () => {
+      const paginatedSessions: PaginatedResponse<SessionResponseDto> = {
+        data: [mockSessionResponse],
+        meta: { total: 1, page: 1, limit: 25, totalPages: 1 },
+      };
+      sessionService.listSessions.mockResolvedValue(paginatedSessions);
 
-      const result = await controller.listUserSessions('user-1');
+      const result = await controller.listUserSessions('user-1', { page: 1, limit: 25 });
 
-      expect(sessionService.listSessions).toHaveBeenCalledWith('user-1');
-      expect(result).toEqual([mockSessionResponse]);
+      expect(sessionService.listSessions).toHaveBeenCalledWith('user-1', undefined, 1, 25);
+      expect(result).toEqual(paginatedSessions);
     });
   });
 

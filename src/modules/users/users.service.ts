@@ -19,6 +19,7 @@ const userSelect = {
   isActive: true,
   isVerified: true,
   createdAt: true,
+  updatedAt: true,
   role: { select: { id: true, name: true } },
 } as const;
 
@@ -30,6 +31,7 @@ function toUserResponseDto(user: {
   isVerified: boolean;
   role: { id: string; name: string };
   createdAt: Date;
+  updatedAt: Date;
 }): UserResponseDto {
   return {
     id: user.id,
@@ -39,6 +41,7 @@ function toUserResponseDto(user: {
     isVerified: user.isVerified,
     role: user.role,
     createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
   };
 }
 

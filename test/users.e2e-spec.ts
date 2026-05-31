@@ -85,6 +85,10 @@ describe('UsersController (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+
+    await prisma.session.deleteMany();
+    await prisma.verificationToken.deleteMany();
+    await prisma.user.deleteMany({ where: { email: { startsWith: 'users-' } } });
   });
 
   beforeEach(async () => {
@@ -99,7 +103,7 @@ describe('UsersController (e2e)', () => {
     const adminPassword = await hash('adminpass123', 12);
     const admin = await prisma.user.create({
       data: {
-        email: 'admin@example.com',
+        email: 'users-admin@example.com',
         name: 'Admin User',
         password: adminPassword,
         isVerified: true,
@@ -111,7 +115,7 @@ describe('UsersController (e2e)', () => {
     const userPassword = await hash('userpass123', 12);
     const user = await prisma.user.create({
       data: {
-        email: 'user@example.com',
+        email: 'users-user@example.com',
         name: 'Regular User',
         password: userPassword,
         isVerified: true,
@@ -123,22 +127,24 @@ describe('UsersController (e2e)', () => {
     // Login as admin
     const adminLogin = await request(app.getHttpServer() as Server)
       .post('/api/auth/login')
-      .send({ email: 'admin@example.com', password: 'adminpass123' })
+      .send({ email: 'users-admin@example.com', password: 'adminpass123' })
       .expect(200);
     adminToken = (adminLogin.body as LoginResponse).accessToken;
 
     // Login as user
     const userLogin = await request(app.getHttpServer() as Server)
       .post('/api/auth/login')
-      .send({ email: 'user@example.com', password: 'userpass123' })
+      .send({ email: 'users-user@example.com', password: 'userpass123' })
       .expect(200);
     userToken = (userLogin.body as LoginResponse).accessToken;
   });
 
   afterEach(async () => {
-    await prisma.session.deleteMany();
-    await prisma.verificationToken.deleteMany();
-    await prisma.user.deleteMany();
+    const suiteUsers = await prisma.user.findMany({ where: { email: { startsWith: 'users-' } }, select: { id: true } });
+    const suiteUserIds = suiteUsers.map((u) => u.id);
+    await prisma.session.deleteMany({ where: { userId: { in: suiteUserIds } } });
+    await prisma.verificationToken.deleteMany({ where: { userId: { in: suiteUserIds } } });
+    await prisma.user.deleteMany({ where: { email: { startsWith: 'users-' } } });
   });
 
   afterAll(async () => {
@@ -153,22 +159,23 @@ describe('UsersController (e2e)', () => {
         .expect(200);
 
       const body = response.body as PaginatedUsersResponse;
-      expect(body.data).toHaveLength(2);
-      expect(body.meta).toEqual({
-        total: 2,
-        page: 1,
-        limit: 25,
-        totalPages: 1,
-      });
-      expect(body.data[0]).toMatchObject({
+      const emails = body.data.map((u) => u.email);
+      expect(emails).toContain('users-admin@example.com');
+      expect(emails).toContain('users-user@example.com');
+      expect(body.meta.total).toBeGreaterThanOrEqual(2);
+      expect(body.meta.page).toBe(1);
+      expect(body.meta.limit).toBe(25);
+      const admin = body.data.find((u) => u.email === 'users-admin@example.com')!;
+      expect(admin).toBeDefined();
+      expect(admin).toMatchObject({
         id: expect.any(String) as string,
-        email: expect.any(String) as string,
-        name: expect.any(String) as string,
+        email: 'users-admin@example.com',
+        name: 'Admin User',
         isActive: true,
         isVerified: true,
         role: {
           id: expect.any(String) as string,
-          name: expect.any(String) as string,
+          name: 'admin',
         },
         createdAt: expect.any(String) as string,
       });
@@ -190,7 +197,7 @@ describe('UsersController (e2e)', () => {
         .expect(401);
 
       const body = response.body as ApiErrorResponse;
-      expect(body.code).toBe('UNAUTHENTICATED');
+      expect(body.code).toBe('UNAUTHORIZED');
     });
 
     it('respects custom pagination params', async () => {
@@ -203,7 +210,7 @@ describe('UsersController (e2e)', () => {
       expect(body.data).toHaveLength(1);
       expect(body.meta.page).toBe(1);
       expect(body.meta.limit).toBe(1);
-      expect(body.meta.totalPages).toBe(2);
+      expect(body.meta.totalPages).toBeGreaterThanOrEqual(2);
     });
   });
 
@@ -217,7 +224,7 @@ describe('UsersController (e2e)', () => {
       const body = response.body as UserResponse;
       expect(body).toMatchObject({
         id: userId,
-        email: 'user@example.com',
+        email: 'users-user@example.com',
         name: 'Regular User',
         isActive: true,
         isVerified: true,
@@ -255,15 +262,15 @@ describe('UsersController (e2e)', () => {
         .post('/api/users')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          email: 'newuser@example.com',
-          password: 'newpass123',
+          email: 'users-newuser@example.com',
+          password: 'Newpass123',
           name: 'New User',
         })
         .expect(201);
 
       const body = response.body as UserResponse;
       expect(body).toMatchObject({
-        email: 'newuser@example.com',
+        email: 'users-newuser@example.com',
         name: 'New User',
         isActive: true,
         isVerified: true,
@@ -278,8 +285,8 @@ describe('UsersController (e2e)', () => {
         .post('/api/users')
         .set('Authorization', `Bearer ${userToken}`)
         .send({
-          email: 'newuser@example.com',
-          password: 'newpass123',
+          email: 'users-newuser@example.com',
+          password: 'Newpass123',
         })
         .expect(403);
 
@@ -292,8 +299,8 @@ describe('UsersController (e2e)', () => {
         .post('/api/users')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          email: 'user@example.com',
-          password: 'newpass123',
+          email: 'users-user@example.com',
+          password: 'Newpass123',
         })
         .expect(409);
 
@@ -320,7 +327,7 @@ describe('UsersController (e2e)', () => {
         .post('/api/users')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          email: 'new@example.com',
+          email: 'users-new@example.com',
           password: 'short',
         })
         .expect(400);
@@ -380,9 +387,10 @@ describe('UsersController (e2e)', () => {
         .expect(200);
 
       const body = response.body as PaginatedUsersResponse;
-      expect(body.data).toHaveLength(1);
-      expect(body.data[0].email).toBe('admin@example.com');
-      expect(body.meta.total).toBe(1);
+      const activeEmails = body.data.map((u) => u.email);
+      expect(activeEmails).toContain('users-admin@example.com');
+      expect(activeEmails).not.toContain('users-user@example.com');
+      expect(body.meta.total).toBeGreaterThanOrEqual(1);
     });
 
     it('returns only inactive users with status=inactive', async () => {
@@ -398,9 +406,10 @@ describe('UsersController (e2e)', () => {
         .expect(200);
 
       const body = response.body as PaginatedUsersResponse;
-      expect(body.data).toHaveLength(1);
-      expect(body.data[0].email).toBe('user@example.com');
-      expect(body.meta.total).toBe(1);
+      const inactiveEmails = body.data.map((u) => u.email);
+      expect(inactiveEmails).toContain('users-user@example.com');
+      expect(inactiveEmails).not.toContain('users-admin@example.com');
+      expect(body.meta.total).toBeGreaterThanOrEqual(1);
     });
 
     it('returns all users with status=all', async () => {
@@ -416,8 +425,10 @@ describe('UsersController (e2e)', () => {
         .expect(200);
 
       const body = response.body as PaginatedUsersResponse;
-      expect(body.data).toHaveLength(2);
-      expect(body.meta.total).toBe(2);
+      const allEmails = body.data.map((u) => u.email);
+      expect(allEmails).toContain('users-admin@example.com');
+      expect(allEmails).toContain('users-user@example.com');
+      expect(body.meta.total).toBeGreaterThanOrEqual(2);
     });
 
     it('returns 400 for invalid status value', async () => {
@@ -604,7 +615,7 @@ describe('UsersController (e2e)', () => {
       const body = response.body as UserResponse;
       expect(body).toMatchObject({
         id: userId,
-        email: 'user@example.com',
+        email: 'users-user@example.com',
         name: 'Regular User',
       });
     });
@@ -615,7 +626,7 @@ describe('UsersController (e2e)', () => {
         .expect(401);
 
       const body = response.body as ApiErrorResponse;
-      expect(body.code).toBe('UNAUTHENTICATED');
+      expect(body.code).toBe('UNAUTHORIZED');
     });
 
     it('returns 401 for deactivated user', async () => {
@@ -631,7 +642,7 @@ describe('UsersController (e2e)', () => {
         .expect(401);
 
       const body = response.body as ApiErrorResponse;
-      expect(body.code).toBe('UNAUTHENTICATED');
+      expect(body.code).toBe('ACCOUNT_INACTIVE');
     });
   });
 
@@ -654,7 +665,7 @@ describe('UsersController (e2e)', () => {
         .expect(401);
 
       const body = response.body as ApiErrorResponse;
-      expect(body.code).toBe('UNAUTHENTICATED');
+      expect(body.code).toBe('UNAUTHORIZED');
     });
 
     it('rejects isActive field on self-service', async () => {

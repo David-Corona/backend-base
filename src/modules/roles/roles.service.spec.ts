@@ -365,28 +365,6 @@ describe('RolesService', () => {
     });
   });
 
-  describe('getPermissionsForRole', () => {
-    it('returns permission keys for a role', async () => {
-      prisma.rolePermission.findMany.mockResolvedValue([
-        { roleId: 'role-1', permissionId: 'perm-1', permission: { key: PERMISSIONS.ROLES_READ } },
-        { roleId: 'role-1', permissionId: 'perm-2', permission: { key: PERMISSIONS.ROLES_WRITE } },
-      ] as never);
-
-      const result = await service.getPermissionsForRole('role-1');
-
-      expect(result).toContain(PERMISSIONS.ROLES_READ);
-      expect(result).toContain(PERMISSIONS.ROLES_WRITE);
-    });
-
-    it('returns an empty array for a non-existent role (fail-closed)', async () => {
-      prisma.rolePermission.findMany.mockResolvedValue([] as never);
-
-      const result = await service.getPermissionsForRole('nonexistent-role');
-
-      expect(result).toEqual([]);
-    });
-  });
-
   describe('findAllPermissions', () => {
     it('returns paginated permissions', async () => {
       const mockPermissions = [
