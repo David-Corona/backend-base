@@ -21,11 +21,12 @@ model User {
   roleId             String
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
-  role               Role                @relation(fields: [roleId], references: [id])
+  role               Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
   sessions           Session[]
   verificationTokens VerificationToken[]
 
   @@index([roleId])
+  @@map("users")
 }
 
 model Session {
@@ -40,6 +41,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@map("sessions")
 }
 
 model Role {
@@ -87,4 +89,5 @@ model VerificationToken {
 
   @@index([userId])
   @@index([userId, type])
+  @@map("verification_tokens")
 }

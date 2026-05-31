@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { paginate } from '@/common/utils/pagination';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
+import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 import {
   SessionNotFoundException,
   CannotTerminateCurrentSessionException,
@@ -63,27 +65,47 @@ export class SessionService {
     await tx.session.deleteMany({ where: { userId } });
   }
 
-  async listSessions(userId: string, currentSessionId?: string): Promise<SessionResponseDto[]> {
-    const sessions = await this.prisma.session.findMany({
-      where: { userId, expiresAt: { gte: new Date() } },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        userAgent: true,
-        ip: true,
-        expiresAt: true,
-        createdAt: true,
-      },
-    });
+  async listSessions(
+    userId: string,
+    currentSessionId?: string,
+    page: number = 1,
+    limit: number = 25,
+  ): Promise<PaginatedResponse<SessionResponseDto>> {
+    const where = { userId, expiresAt: { gte: new Date() } };
 
-    return sessions.map((session) => ({
-      id: session.id,
-      isCurrent: session.id === currentSessionId,
-      userAgent: session.userAgent,
-      ip: session.ip,
-      expiresAt: session.expiresAt,
-      createdAt: session.createdAt,
-    }));
+    const result = await paginate(
+      () => this.prisma.session.count({ where }),
+      (skip, take) =>
+        this.prisma.session.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            userAgent: true,
+            ip: true,
+            expiresAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }),
+      page,
+      limit,
+    );
+
+    return {
+      data: result.data.map((session) => ({
+        id: session.id,
+        isCurrent: session.id === currentSessionId,
+        userAgent: session.userAgent,
+        ip: session.ip,
+        expiresAt: session.expiresAt,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      })),
+      meta: result.meta,
+    };
   }
 
   async terminateSession(

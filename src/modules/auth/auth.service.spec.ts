@@ -8,10 +8,9 @@ import { humanizeDuration, parseDuration } from './auth.service';
 import { SessionService } from './session.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
-import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
 import { UserAlreadyExistsException, UnauthorizedException, InternalServerErrorException } from '@/common/exceptions';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
-import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { createHash } from 'crypto';
 
@@ -43,7 +42,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: PrismaService, useValue: mockDeep<PrismaClient>() },
+        { provide: PrismaService, useValue: mockDeep<PrismaService>() },
         { provide: SessionService, useValue: sessionService },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
@@ -225,7 +224,14 @@ describe('AuthService', () => {
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
-        role: { id: 'role-1', name: 'user' },
+        role: {
+          id: 'role-1',
+          name: 'user',
+          permissions: [
+            { permission: { key: 'users:read' } },
+            { permission: { key: 'roles:read' } },
+          ],
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       } as never);
@@ -237,7 +243,7 @@ describe('AuthService', () => {
 
       const result = await service.login('test@example.com', 'password123');
 
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'session-id' });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'session-id', permissions: ['users:read', 'roles:read'] });
       expect(result.accessToken).toBe('jwt-access-token');
       expect(result.refreshToken).toMatch(/^[a-f0-9]{128}$/);
       expect(result.user).toEqual({
@@ -248,6 +254,7 @@ describe('AuthService', () => {
         isVerified: true,
         role: { id: 'role-1', name: 'user' },
         createdAt: expect.any(Date) as Date,
+        updatedAt: expect.any(Date) as Date,
       });
       expect(result.expiresAt).toBeInstanceOf(Date);
     });
@@ -339,12 +346,18 @@ describe('AuthService', () => {
         roleId: 'role-1',
         isActive: true,
         isVerified: true,
+        role: {
+          permissions: [
+            { permission: { key: 'users:read' } },
+            { permission: { key: 'roles:read' } },
+          ],
+        },
       } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
       const result = await service.refresh(rawToken);
 
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id' });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id', permissions: ['users:read', 'roles:read'] });
       expect(result.accessToken).toBe('new-jwt-access-token');
       expect(result.refreshToken).toMatch(/^[a-f0-9]{128}$/);
       expect(result.expiresAt).toBeInstanceOf(Date);
@@ -470,6 +483,11 @@ describe('AuthService', () => {
         roleId: 'role-1',
         isActive: true,
         isVerified: true,
+        role: {
+          permissions: [
+            { permission: { key: 'users:read' } },
+          ],
+        },
       } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
@@ -642,7 +660,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('throws InvalidTokenException when token is expired and deletes it', async () => {
+    it('throws TokenExpiredException when token is expired and deletes it', async () => {
       const rawToken = 'b'.repeat(128);
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
@@ -657,7 +675,7 @@ describe('AuthService', () => {
       prisma.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
 
       await expect(service.resetPassword(rawToken, 'newpassword123')).rejects.toThrow(
-        InvalidTokenException,
+        TokenExpiredException,
       );
 
       expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
@@ -722,7 +740,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('throws InvalidTokenException when token is expired and deletes it', async () => {
+    it('throws TokenExpiredException when token is expired and deletes it', async () => {
       const rawToken = 'b'.repeat(128);
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
@@ -737,7 +755,7 @@ describe('AuthService', () => {
       prisma.verificationToken.deleteMany.mockResolvedValue({ count: 1 });
 
       await expect(service.verifyEmail(rawToken)).rejects.toThrow(
-        InvalidTokenException,
+        TokenExpiredException,
       );
 
       expect(prisma.verificationToken.deleteMany).toHaveBeenCalledWith({
@@ -895,13 +913,20 @@ describe('AuthService', () => {
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
-        role: { id: 'role-1', name: 'user' },
+        role: {
+          id: 'role-1',
+          name: 'user',
+          permissions: [
+            { permission: { key: 'users:read' } },
+            { permission: { key: 'roles:read' } },
+          ],
+        },
         createdAt: new Date('2025-01-01'),
       } as never);
 
       const result = await service.changePassword('user-id', 'oldPassword1', 'newPassword1');
 
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id' });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id', permissions: ['users:read', 'roles:read'] });
       expect(result.accessToken).toBe('access-token');
       expect(result.refreshToken).toBeDefined();
       expect(result.user.email).toBe('test@example.com');
@@ -953,18 +978,62 @@ describe('AuthService', () => {
         isActive: true,
         isVerified: true,
         roleId: 'role-1',
-        role: { id: 'role-1', name: 'user' },
+        role: {
+          id: 'role-1',
+          name: 'user',
+          permissions: [
+            { permission: { key: 'users:read' } },
+          ],
+        },
         createdAt: new Date('2025-01-01'),
       } as never);
 
       const result = await service.changePassword('user-id', 'oldPassword1', 'oldPassword1');
 
-      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id' });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id', permissions: ['users:read'] });
       expect(result.accessToken).toBe('access-token');
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-id' },
         data: { password: expect.stringMatching(/^\$2[aby]\$/) },
       });
+    });
+
+    it('throws InvalidCredentialsException when user is inactive', async () => {
+      const hashedPassword = await hash('oldPassword1', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        email: 'test@example.com',
+        password: hashedPassword,
+        name: null,
+        isActive: false,
+        isVerified: true,
+        roleId: 'role-1',
+        role: { id: 'role-1', name: 'user' },
+        createdAt: new Date('2025-01-01'),
+      } as never);
+
+      await expect(
+        service.changePassword('user-id', 'oldPassword1', 'newPassword1'),
+      ).rejects.toThrow(InvalidCredentialsException);
+    });
+
+    it('throws EmailNotVerifiedException when user is not verified', async () => {
+      const hashedPassword = await hash('oldPassword1', 12);
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'user-id',
+        email: 'test@example.com',
+        password: hashedPassword,
+        name: null,
+        isActive: true,
+        isVerified: false,
+        roleId: 'role-1',
+        role: { id: 'role-1', name: 'user' },
+        createdAt: new Date('2025-01-01'),
+      } as never);
+
+      await expect(
+        service.changePassword('user-id', 'oldPassword1', 'newPassword1'),
+      ).rejects.toThrow(EmailNotVerifiedException);
     });
   });
 

@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from './email.service';
 import { Resend } from 'resend';
-import * as fs from 'fs';
 
 jest.mock('resend', () => {
   return {
@@ -11,12 +10,6 @@ jest.mock('resend', () => {
         send: jest.fn().mockResolvedValue({ id: 'email-id' }),
       },
     })),
-  };
-});
-
-jest.mock('fs', () => {
-  return {
-    readFileSync: jest.fn(),
   };
 });
 
@@ -38,16 +31,6 @@ describe('EmailService', () => {
       emails: { send: mockSend },
     }));
 
-    (fs.readFileSync as jest.Mock).mockImplementation((path: string) => {
-      if (path.includes('verification-email.hbs')) {
-        return '<html><body>Token: {{token}} Expires: {{expiresIn}}</body></html>';
-      }
-      if (path.includes('password-reset-email.hbs')) {
-        return '<html><body>Reset: {{token}} Expires: {{expiresIn}}</body></html>';
-      }
-      throw new Error(`Unknown template: ${path}`);
-    });
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmailService,
@@ -56,7 +39,6 @@ describe('EmailService', () => {
     }).compile();
 
     service = module.get(EmailService);
-    service.onModuleInit();
   });
 
   afterEach(() => {
@@ -64,7 +46,7 @@ describe('EmailService', () => {
   });
 
   describe('sendVerificationEmail', () => {
-    it('sends verification email with rendered template', async () => {
+    it('sends verification email with token and expiry', async () => {
       await service.sendVerificationEmail('user@example.com', 'abc123', '24 hours');
 
       expect(mockSend).toHaveBeenCalledTimes(1);
@@ -73,8 +55,20 @@ describe('EmailService', () => {
         from: 'noreply@example.com',
         to: 'user@example.com',
         subject: 'Verify your email address',
-        html: '<html><body>Token: abc123 Expires: 24 hours</body></html>',
       });
+      expect(call[0].html).toContain('abc123');
+      expect(call[0].html).toContain('24 hours');
+      expect(call[0].html).toContain('Verify your email address');
+      expect(call[0].html).not.toContain('{{token}}');
+      expect(call[0].html).not.toContain('{{expiresIn}}');
+    });
+
+    it('escapes HTML in token to prevent injection', async () => {
+      const maliciousToken = '<script>alert("xss")</script>';
+      await service.sendVerificationEmail('user@example.com', maliciousToken, '24 hours');
+      const call = mockSend.mock.calls[0] as [Record<string, unknown>];
+      expect(call[0].html).toContain('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(call[0].html).not.toContain('<script>');
     });
 
     it('propagates errors from resend', async () => {
@@ -87,7 +81,7 @@ describe('EmailService', () => {
   });
 
   describe('sendPasswordResetEmail', () => {
-    it('sends password reset email with rendered template', async () => {
+    it('sends password reset email with token and expiry', async () => {
       await service.sendPasswordResetEmail('user@example.com', 'reset456', '1 hour');
 
       expect(mockSend).toHaveBeenCalledTimes(1);
@@ -96,8 +90,12 @@ describe('EmailService', () => {
         from: 'noreply@example.com',
         to: 'user@example.com',
         subject: 'Reset your password',
-        html: '<html><body>Reset: reset456 Expires: 1 hour</body></html>',
       });
+      expect(call[0].html).toContain('reset456');
+      expect(call[0].html).toContain('1 hour');
+      expect(call[0].html).toContain('Reset your password');
+      expect(call[0].html).not.toContain('{{token}}');
+      expect(call[0].html).not.toContain('{{expiresIn}}');
     });
 
     it('propagates errors from resend', async () => {

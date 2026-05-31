@@ -231,22 +231,6 @@ export class RolesService {
     });
   }
 
-  /**
-   * Returns permission keys for a given role.
-   * Returns an empty array if the role has no permissions or does not exist.
-   * Callers must treat an empty result as "no access" for fail-closed semantics.
-   */
-  async getPermissionsForRole(roleId: string): Promise<string[]> {
-    const rolePermissions = await this.prisma.rolePermission.findMany({
-      where: { roleId },
-      include: {
-        permission: { select: { key: true } },
-      },
-    });
-
-    return rolePermissions.map((rp) => rp.permission.key);
-  }
-
   async findAllPermissions(
     page: number,
     limit: number,

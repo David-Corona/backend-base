@@ -9,4 +9,5 @@ export class UserResponseDto {
     name: string;
   };
   createdAt!: Date;
+  updatedAt!: Date;
 }

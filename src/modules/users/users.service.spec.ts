@@ -5,7 +5,6 @@ import { UsersService } from './users.service';
 import { UserNotFoundException, UserAlreadyExistsException } from '@/common/exceptions';
 import { RoleNotFoundException } from '@/modules/roles/roles.exceptions';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import { PrismaClient } from '@prisma/client';
 import { UserStatusFilter } from './dto/users-pagination-query.dto';
 
 describe('UsersService', () => {
@@ -42,7 +41,7 @@ describe('UsersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
-        { provide: PrismaService, useValue: mockDeep<PrismaClient>() },
+        { provide: PrismaService, useValue: mockDeep<PrismaService>() },
       ],
     }).compile();
 

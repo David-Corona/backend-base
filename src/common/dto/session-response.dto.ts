@@ -5,4 +5,5 @@ export class SessionResponseDto {
   ip!: string | null;
   expiresAt!: Date;
   createdAt!: Date;
+  updatedAt!: Date;
 }

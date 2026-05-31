@@ -13,6 +13,7 @@ describe('SessionService', () => {
   const mockPrismaService = {
     session: {
       create: jest.fn(),
+      count: jest.fn(),
       findMany: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
@@ -120,8 +121,9 @@ describe('SessionService', () => {
   });
 
   describe('listSessions', () => {
-    it('returns all non-expired sessions, marking the current one', async () => {
+    it('returns paginated sessions, marking the current one', async () => {
       const now = new Date();
+      mockPrismaService.session.count.mockResolvedValue(2);
       mockPrismaService.session.findMany.mockResolvedValue([
         {
           id: 'session-1',
@@ -129,6 +131,7 @@ describe('SessionService', () => {
           ip: '1.2.3.4',
           expiresAt: new Date(now.getTime() + 86_400_000),
           createdAt: now,
+          updatedAt: now,
         },
         {
           id: 'session-2',
@@ -136,30 +139,41 @@ describe('SessionService', () => {
           ip: null,
           expiresAt: new Date(now.getTime() + 86_400_000),
           createdAt: new Date(now.getTime() - 1000),
+          updatedAt: new Date(now.getTime() - 1000),
         },
       ] as never);
 
-      const result = await service.listSessions('user-id', 'session-1');
+      const result = await service.listSessions('user-id', 'session-1', 1, 25);
 
-      expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0]).toEqual({
         id: 'session-1',
         isCurrent: true,
         userAgent: 'Chrome',
         ip: '1.2.3.4',
         expiresAt: expect.any(Date),
         createdAt: now,
+        updatedAt: now,
       });
-      expect(result[1]).toEqual({
+      expect(result.data[1]).toEqual({
         id: 'session-2',
         isCurrent: false,
         userAgent: null,
         ip: null,
         expiresAt: expect.any(Date),
         createdAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      });
+      expect(result.meta).toEqual({
+        total: 2,
+        page: 1,
+        limit: 25,
+        totalPages: 1,
       });
       expect(mockPrismaService.session.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-id', expiresAt: { gte: expect.any(Date) } },
+        skip: 0,
+        take: 25,
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -167,16 +181,24 @@ describe('SessionService', () => {
           ip: true,
           expiresAt: true,
           createdAt: true,
+          updatedAt: true,
         },
       });
     });
 
-    it('returns empty array when user has no sessions', async () => {
+    it('returns empty paginated result when user has no sessions', async () => {
+      mockPrismaService.session.count.mockResolvedValue(0);
       mockPrismaService.session.findMany.mockResolvedValue([]);
 
       const result = await service.listSessions('user-id');
 
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+      expect(result.meta).toEqual({
+        total: 0,
+        page: 1,
+        limit: 25,
+        totalPages: 0,
+      });
     });
   });
 

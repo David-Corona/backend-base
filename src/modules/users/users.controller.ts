@@ -20,9 +20,9 @@ import { PERMISSIONS } from '@/common/permissions';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
-import type { CreateUserRequestDto } from './dto/create-user-request.dto';
-import type { UpdateUserRequestDto } from './dto/update-user-request.dto';
-import type { UpdateProfileRequestDto } from './dto/update-profile-request.dto';
+import { CreateUserRequestDto } from './dto/create-user-request.dto';
+import { UpdateUserRequestDto } from './dto/update-user-request.dto';
+import { UpdateProfileRequestDto } from './dto/update-profile-request.dto';
 import { UsersPaginationQueryDto } from './dto/users-pagination-query.dto';
 import { AssignRoleRequestDto } from './dto/assign-role-request.dto';
 
@@ -103,8 +103,9 @@ export class UsersController {
   @RequirePermissions(PERMISSIONS.USERS_READ)
   async listUserSessions(
     @Param('userId') userId: string,
-  ): Promise<SessionResponseDto[]> {
-    return this.sessionService.listSessions(userId);
+    @Query() pagination: UsersPaginationQueryDto,
+  ): Promise<PaginatedResponse<SessionResponseDto>> {
+    return this.sessionService.listSessions(userId, undefined, pagination.page, pagination.limit);
   }
 
   @Delete(':userId/sessions/:id')

@@ -1,6 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RolesService } from '@/modules/roles/roles.service';
 import { ForbiddenException, UnauthorizedException } from '@/common/exceptions';
 import { PERMISSIONS_KEY } from '@/common/decorators/require-permissions.decorator';
 import type { Permission } from '@/common/permissions';
@@ -8,12 +7,9 @@ import { IS_PUBLIC_KEY } from '@/common/decorators/public.decorator';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-    private readonly rolesService: RolesService,
-  ) {}
+  constructor(private readonly reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -33,7 +29,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user as { userId: string; roleId: string } | undefined;
+    const user = request.user as { userId: string; roleId: string; permissions: string[] } | undefined;
 
     if (!user) {
       throw new UnauthorizedException('AUTH_REQUIRED', 'Authentication required');
@@ -43,8 +39,7 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('PERMISSION_DENIED', 'Permission denied');
     }
 
-    const userPermissions = await this.rolesService.getPermissionsForRole(user.roleId);
-    const userPermissionSet = new Set(userPermissions);
+    const userPermissionSet = new Set(user.permissions);
 
     const hasAllPermissions = requiredPermissions.every((permission) =>
       userPermissionSet.has(permission),

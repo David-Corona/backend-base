@@ -7,7 +7,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { EmailService } from '@/modules/email/email.service';
 import { hash, compare } from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
-import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
+import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
 import { SessionService } from './session.service';
 import { InternalServerErrorException, UnauthorizedException, UserAlreadyExistsException } from '@/common/exceptions';
 import { getViolatedFields } from '@/common/utils/prisma';
@@ -134,7 +134,15 @@ export class AuthService {
   }> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: { role: { select: { id: true, name: true } } },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            permissions: { include: { permission: { select: { key: true } } } },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -170,7 +178,8 @@ export class AuthService {
       ip: metadata?.ip,
     });
 
-    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: session.id });
+    const permissions = user.role.permissions.map((rp) => rp.permission.key);
+    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: session.id, permissions });
 
     const userDto: UserResponseDto = {
       id: user.id,
@@ -178,8 +187,9 @@ export class AuthService {
       name: user.name,
       isActive: user.isActive,
       isVerified: user.isVerified,
-      role: user.role,
+      role: { id: user.role.id, name: user.role.name },
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     return { accessToken, refreshToken, user: userDto, expiresAt };
@@ -233,14 +243,20 @@ export class AuthService {
 
       const user = await tx.user.findUnique({
         where: { id: session.userId },
-        select: { roleId: true, isActive: true, isVerified: true },
+        select: {
+          roleId: true,
+          isActive: true,
+          isVerified: true,
+          role: { select: { permissions: { include: { permission: { select: { key: true } } } } } },
+        },
       });
 
       if (!user || !user.isActive || !user.isVerified) {
         throw new InvalidRefreshTokenException();
       }
 
-      const accessToken = this.jwtService.sign({ sub: session.userId, roleId: user.roleId, sid: newSession.id });
+      const permissions = user.role.permissions.map((rp) => rp.permission.key);
+      const accessToken = this.jwtService.sign({ sub: session.userId, roleId: user.roleId, sid: newSession.id, permissions });
 
       return { accessToken, refreshToken: newRefreshToken, expiresAt };
     });
@@ -313,7 +329,7 @@ export class AuthService {
         await tx.verificationToken.deleteMany({
           where: { id: tokenRecord.id },
         });
-        throw new InvalidTokenException();
+        throw new TokenExpiredException();
       }
 
       await tx.user.update({
@@ -353,7 +369,7 @@ export class AuthService {
         await tx.verificationToken.deleteMany({
           where: { id: tokenRecord.id },
         });
-        throw new InvalidTokenException();
+        throw new TokenExpiredException();
       }
 
       const user = await tx.user.findUnique({
@@ -438,7 +454,15 @@ export class AuthService {
   ): Promise<{ accessToken: string; refreshToken: string; user: UserResponseDto; expiresAt: Date }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { role: { select: { id: true, name: true } } },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            permissions: { include: { permission: { select: { key: true } } } },
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -485,7 +509,8 @@ export class AuthService {
       });
     });
 
-    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: newSession!.id });
+    const permissions = user.role.permissions.map((rp) => rp.permission.key);
+    const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: newSession!.id, permissions });
 
     const userDto: UserResponseDto = {
       id: user.id,
@@ -493,8 +518,9 @@ export class AuthService {
       name: user.name,
       isActive: user.isActive,
       isVerified: user.isVerified,
-      role: user.role,
+      role: { id: user.role.id, name: user.role.name },
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     return { accessToken, refreshToken, user: userDto, expiresAt };

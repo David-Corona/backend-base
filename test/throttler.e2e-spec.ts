@@ -4,7 +4,6 @@ import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
 import * as request from 'supertest';
 import * as cookieParser from 'cookie-parser';
 import type { Server } from 'http';
-import { AppModule } from '@/app.module';
 import { AppExceptionFilter } from '@/common/filters/app-exception.filter';
 import { AuthService } from '@/modules/auth/auth.service';
 import { InvalidRefreshTokenException } from '@/modules/auth/auth.exceptions';
@@ -19,8 +18,17 @@ interface ApiErrorResponse {
 
 describe('Rate Limiting (e2e)', () => {
   let app: INestApplication;
+  const origAuthRateLimit = process.env.RATE_LIMIT_AUTH;
+  const origDefaultRateLimit = process.env.RATE_LIMIT_DEFAULT;
+  const origRateLimitTtl = process.env.RATE_LIMIT_TTL;
 
   beforeAll(async () => {
+    process.env.RATE_LIMIT_AUTH = '10';
+    process.env.RATE_LIMIT_DEFAULT = '60';
+    process.env.RATE_LIMIT_TTL = '60000';
+
+    const { AppModule } = await import('@/app.module');
+
     const mockAuthService = {
       register: jest.fn().mockResolvedValue(undefined),
       refresh: jest.fn().mockImplementation(() => {
@@ -62,6 +70,9 @@ describe('Rate Limiting (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+    if (origAuthRateLimit !== undefined) { process.env.RATE_LIMIT_AUTH = origAuthRateLimit; } else { delete process.env.RATE_LIMIT_AUTH; }
+    if (origDefaultRateLimit !== undefined) { process.env.RATE_LIMIT_DEFAULT = origDefaultRateLimit; } else { delete process.env.RATE_LIMIT_DEFAULT; }
+    if (origRateLimitTtl !== undefined) { process.env.RATE_LIMIT_TTL = origRateLimitTtl; } else { delete process.env.RATE_LIMIT_TTL; }
   });
 
   describe('POST /api/auth/register', () => {
@@ -72,7 +83,7 @@ describe('Rate Limiting (e2e)', () => {
         requests.push(
           request(app.getHttpServer() as Server)
             .post('/api/auth/register')
-            .send({ email: `user${i}@example.com`, password: 'password123' }),
+            .send({ email: `user${i}@example.com`, password: 'Password123' }),
         );
       }
 
@@ -86,7 +97,7 @@ describe('Rate Limiting (e2e)', () => {
 
       const blocked = await request(app.getHttpServer() as Server)
         .post('/api/auth/register')
-        .send({ email: 'blocked@example.com', password: 'password123' });
+        .send({ email: 'blocked@example.com', password: 'Password123' });
 
       expect(blocked.status).toBe(429);
       const body = blocked.body as ApiErrorResponse;
@@ -125,7 +136,7 @@ describe('Rate Limiting (e2e)', () => {
       for (let i = 0; i < 11; i++) {
         await request(app.getHttpServer() as Server)
           .post('/api/auth/register')
-          .send({ email: `health${i}@example.com`, password: 'password123' });
+          .send({ email: `health${i}@example.com`, password: 'Password123' });
       }
 
       const health = await request(app.getHttpServer() as Server)

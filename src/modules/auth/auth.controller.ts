@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
+import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { LoginRequestDto } from './dto/login-request.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -26,6 +28,7 @@ import { ForgotPasswordRequestDto } from './dto/forgot-password-request.dto';
 import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { ResendVerificationRequestDto } from './dto/resend-verification-request.dto';
 import { ChangePasswordRequestDto } from './dto/change-password-request.dto';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 
 const AUTH_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_AUTH ?? '10', 10);
 
@@ -185,8 +188,12 @@ export class AuthController {
   }
 
   @Get('sessions')
-  async listSessions(@CurrentUser('userId') userId: string, @CurrentUser('sessionId') sessionId: string): Promise<SessionResponseDto[]> {
-    return this.sessionService.listSessions(userId, sessionId);
+  async listSessions(
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('sessionId') sessionId: string,
+    @Query() pagination: PaginationQueryDto,
+  ): Promise<PaginatedResponse<SessionResponseDto>> {
+    return this.sessionService.listSessions(userId, sessionId, pagination.page, pagination.limit);
   }
 
   @Delete('sessions/:id')

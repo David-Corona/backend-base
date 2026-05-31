@@ -4,6 +4,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
+import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -16,6 +17,12 @@ describe('AuthController', () => {
     ip: '1.2.3.4',
     expiresAt: new Date(Date.now() + 86_400_000),
     createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockPaginatedSessions: PaginatedResponse<SessionResponseDto> = {
+    data: [mockSessionResponse],
+    meta: { total: 1, page: 1, limit: 25, totalPages: 1 },
   };
 
   beforeEach(async () => {
@@ -46,13 +53,13 @@ describe('AuthController', () => {
   });
 
   describe('listSessions', () => {
-    it('returns sessions for the current user', async () => {
-      sessionService.listSessions.mockResolvedValue([mockSessionResponse]);
+    it('returns paginated sessions for the current user', async () => {
+      sessionService.listSessions.mockResolvedValue(mockPaginatedSessions);
 
-      const result = await controller.listSessions('user-id', 'session-1');
+      const result = await controller.listSessions('user-id', 'session-1', { page: 1, limit: 25 });
 
-      expect(sessionService.listSessions).toHaveBeenCalledWith('user-id', 'session-1');
-      expect(result).toEqual([mockSessionResponse]);
+      expect(sessionService.listSessions).toHaveBeenCalledWith('user-id', 'session-1', 1, 25);
+      expect(result).toEqual(mockPaginatedSessions);
     });
   });
 

@@ -1,12 +1,10 @@
 import { Reflector } from '@nestjs/core';
 import { ExecutionContext } from '@nestjs/common';
-import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { PermissionsGuard } from './permissions.guard';
-import { RolesService } from '@/modules/roles/roles.service';
 import { ForbiddenException, UnauthorizedException } from '@/common/exceptions';
 import { PERMISSIONS } from '@/common/permissions';
 
-function createMockContext(user?: { userId: string; roleId: string }): ExecutionContext {
+function createMockContext(user?: { userId: string; roleId: string; permissions: string[] }): ExecutionContext {
   return {
     switchToHttp: () => ({
       getRequest: () => ({ user }),
@@ -19,81 +17,79 @@ function createMockContext(user?: { userId: string; roleId: string }): Execution
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
   let reflector: Reflector;
-  let rolesService: DeepMockProxy<RolesService>;
 
   beforeEach(() => {
     reflector = new Reflector();
-    rolesService = mockDeep<RolesService>();
-    guard = new PermissionsGuard(reflector, rolesService);
+    guard = new PermissionsGuard(reflector);
   });
 
-  it('allows access when no permissions are required', async () => {
+  it('allows access when no permissions are required', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
-    const context = createMockContext({ userId: 'user-1', roleId: 'role-1' });
+    const context = createMockContext({ userId: 'user-1', roleId: 'role-1', permissions: [] });
 
-    const result = await guard.canActivate(context);
+    const result = guard.canActivate(context);
 
     expect(result).toBe(true);
   });
 
-  it('allows access when user has all required permissions', async () => {
+  it('allows access when user has all required permissions', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
       if (key === 'isPublic') return false;
       if (key === 'permissions') return [PERMISSIONS.ROLES_READ, PERMISSIONS.ROLES_WRITE];
       return undefined;
     });
 
-    rolesService.getPermissionsForRole.mockResolvedValue([
-      PERMISSIONS.ROLES_READ,
-      PERMISSIONS.ROLES_WRITE,
-    ]);
-
-    const context = createMockContext({ userId: 'user-1', roleId: 'role-1' });
-    const result = await guard.canActivate(context);
+    const context = createMockContext({
+      userId: 'user-1',
+      roleId: 'role-1',
+      permissions: [PERMISSIONS.ROLES_READ, PERMISSIONS.ROLES_WRITE],
+    });
+    const result = guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(rolesService.getPermissionsForRole).toHaveBeenCalledWith('role-1');
   });
 
-  it('denies access when user lacks required permissions', async () => {
+  it('denies access when user lacks required permissions', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
       if (key === 'isPublic') return false;
       if (key === 'permissions') return [PERMISSIONS.ROLES_READ, PERMISSIONS.ROLES_DELETE];
       return undefined;
     });
 
-    rolesService.getPermissionsForRole.mockResolvedValue([PERMISSIONS.ROLES_READ]);
+    const context = createMockContext({
+      userId: 'user-1',
+      roleId: 'role-1',
+      permissions: [PERMISSIONS.ROLES_READ],
+    });
 
-    const context = createMockContext({ userId: 'user-1', roleId: 'role-1' });
-
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
-  it('allows access for public routes', async () => {
+  it('allows access for public routes', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
       if (key === 'isPublic') return true;
       return undefined;
     });
 
     const context = createMockContext();
-    const result = await guard.canActivate(context);
+    const result = guard.canActivate(context);
 
     expect(result).toBe(true);
   });
 
-  it('denies access when user has no roleId', async () => {
+  it('denies access when user has no roleId', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
       if (key === 'isPublic') return false;
       if (key === 'permissions') return [PERMISSIONS.ROLES_READ];
       return undefined;
     });
 
-    const context = createMockContext({ userId: 'user-1', roleId: '' });
+    const context = createMockContext({ userId: 'user-1', roleId: '', permissions: [] });
 
-    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+    expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
   });
 
-  it('denies access when user object is undefined', async () => {
+  it('denies access when user object is undefined', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockImplementation((key) => {
       if (key === 'isPublic') return false;
       if (key === 'permissions') return [PERMISSIONS.ROLES_READ];
@@ -102,6 +98,6 @@ describe('PermissionsGuard', () => {
 
     const context = createMockContext(undefined);
 
-    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
   });
 });

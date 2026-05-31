@@ -10,6 +10,5 @@ export class ChangePasswordRequestDto {
   @IsString()
   @IsNotEmpty()
   @IsPassword()
-  @MaxLength(128)
   newPassword!: string;
 }

@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; roleId: string; sid: string }): Promise<{ userId: string; roleId: string; sessionId: string }> {
+  async validate(payload: { sub: string; roleId: string; sid: string; permissions: string[] }): Promise<{ userId: string; roleId: string; sessionId: string; permissions: string[] }> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { id: true, isActive: true, roleId: true },
@@ -32,6 +32,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('ACCOUNT_INACTIVE', 'Account is inactive');
     }
 
-    return { userId: user.id, roleId: user.roleId, sessionId: payload.sid };
+    return { userId: user.id, roleId: user.roleId, sessionId: payload.sid, permissions: payload.permissions };
   }
 }

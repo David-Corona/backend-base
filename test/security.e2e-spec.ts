@@ -11,6 +11,7 @@ import { configureApp } from '@/bootstrap';
 const mockPrismaService = {
   $connect: jest.fn().mockResolvedValue(undefined),
   $disconnect: jest.fn().mockResolvedValue(undefined),
+  $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
 };
 
 async function createSecurityApp(

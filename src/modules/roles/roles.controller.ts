@@ -14,9 +14,9 @@ import { RolesService } from './roles.service';
 import { RequirePermissions } from '@/common/decorators/require-permissions.decorator';
 import { PERMISSIONS } from '@/common/permissions';
 import { RolesPaginationQueryDto } from './dto/roles-pagination-query.dto';
-import type { CreateRoleRequestDto } from './dto/create-role-request.dto';
-import type { UpdateRoleRequestDto } from './dto/update-role-request.dto';
-import type { RoleResponseDto } from './dto/role-response.dto';
+import { CreateRoleRequestDto } from './dto/create-role-request.dto';
+import { UpdateRoleRequestDto } from './dto/update-role-request.dto';
+import { RoleResponseDto } from './dto/role-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 
 @Controller('roles')
