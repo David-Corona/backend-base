@@ -6,6 +6,7 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -42,8 +43,14 @@ export const RegisterDocs = () =>
       },
       description: 'Registration successful',
     }),
+    ApiBadRequestResponse({
+      description: 'VALIDATION_ERROR - Request body validation failed',
+    }),
     ApiConflictResponse({
       description: 'USER_ALREADY_EXISTS - A user with this email already exists',
+    }),
+    ApiInternalServerErrorResponse({
+      description: 'DEFAULT_ROLE_NOT_FOUND - Server configuration error',
     }),
   );
 
@@ -58,6 +65,9 @@ export const LoginDocs = () =>
     ApiOkResponse({ type: LoginResponseDto, description: 'Login successful' }),
     ApiUnauthorizedResponse({
       description: 'INVALID_CREDENTIALS - Invalid email or password',
+    }),
+    ApiBadRequestResponse({
+      description: 'VALIDATION_ERROR - Request body validation failed',
     }),
     ApiForbiddenResponse({
       description: 'EMAIL_NOT_VERIFIED - Email not verified',
@@ -115,7 +125,7 @@ export const VerifyEmailDocs = () =>
     }),
     ApiBadRequestResponse({
       description:
-        'INVALID_TOKEN - Invalid or expired token; TOKEN_EXPIRED - Token has expired',
+        'VALIDATION_ERROR - Request body validation failed; INVALID_TOKEN - Invalid or expired token; TOKEN_EXPIRED - Token has expired',
     }),
     ApiConflictResponse({
       description: 'EMAIL_ALREADY_VERIFIED - Email is already verified',
@@ -142,6 +152,9 @@ export const ResendVerificationDocs = () =>
       },
       description: 'Verification email sent (if account exists)',
     }),
+    ApiBadRequestResponse({
+      description: 'VALIDATION_ERROR - Request body validation failed',
+    }),
   );
 
 export const ForgotPasswordDocs = () =>
@@ -163,6 +176,9 @@ export const ForgotPasswordDocs = () =>
         },
       },
       description: 'Password reset email sent (if account exists)',
+    }),
+    ApiBadRequestResponse({
+      description: 'VALIDATION_ERROR - Request body validation failed',
     }),
   );
 
@@ -187,7 +203,7 @@ export const ResetPasswordDocs = () =>
     }),
     ApiBadRequestResponse({
       description:
-        'INVALID_TOKEN - Invalid or expired token; TOKEN_EXPIRED - Token has expired',
+        'VALIDATION_ERROR - Request body validation failed; INVALID_TOKEN - Invalid or expired token; TOKEN_EXPIRED - Token has expired',
     }),
   );
 
@@ -201,9 +217,18 @@ export const ChangePasswordDocs = () =>
     }),
     ApiBody({ type: ChangePasswordRequestDto }),
     ApiOkResponse({ type: LoginResponseDto, description: 'Password changed successfully' }),
+    ApiBadRequestResponse({
+      description: 'VALIDATION_ERROR - Request body validation failed',
+    }),
     ApiUnauthorizedResponse({
       description:
-        'AUTH_REQUIRED - Authentication required; INVALID_CREDENTIALS - Account is inactive; EMAIL_NOT_VERIFIED - Email not verified; INVALID_PASSWORD - Current password is incorrect',
+        'AUTH_REQUIRED - Authentication required; UNAUTHORIZED - Unauthorized; USER_NOT_FOUND - User not found; ACCOUNT_INACTIVE - Account is inactive; INVALID_CREDENTIALS - Invalid email or password; INVALID_PASSWORD - Current password is incorrect',
+    }),
+    ApiForbiddenResponse({
+      description: 'EMAIL_NOT_VERIFIED - Email not verified',
+    }),
+    ApiInternalServerErrorResponse({
+      description: 'INVALID_DURATION_FORMAT - Server configuration error',
     }),
   );
 
@@ -219,8 +244,12 @@ export const ListSessionsDocs = () =>
       type: PaginatedSessionsResponseDto,
       description: 'Paginated list of sessions',
     }),
+    ApiBadRequestResponse({
+      description: 'VALIDATION_ERROR - Query parameter validation failed',
+    }),
     ApiUnauthorizedResponse({
-      description: 'AUTH_REQUIRED - Authentication required',
+      description:
+        'AUTH_REQUIRED - Authentication required; UNAUTHORIZED - Invalid or expired token; USER_NOT_FOUND - User not found; ACCOUNT_INACTIVE - Account is inactive',
     }),
   );
 
@@ -240,7 +269,8 @@ export const TerminateSessionDocs = () =>
     }),
     ApiResponse({ status: 204, description: 'Session terminated successfully' }),
     ApiUnauthorizedResponse({
-      description: 'AUTH_REQUIRED - Authentication required',
+      description:
+        'AUTH_REQUIRED - Authentication required; UNAUTHORIZED - Invalid or expired token; USER_NOT_FOUND - User not found; ACCOUNT_INACTIVE - Account is inactive',
     }),
     ApiForbiddenResponse({
       description: 'CANNOT_TERMINATE_CURRENT_SESSION - Cannot terminate your current session',
@@ -260,6 +290,7 @@ export const TerminateAllOtherSessionsDocs = () =>
     }),
     ApiResponse({ status: 204, description: 'All other sessions terminated successfully' }),
     ApiUnauthorizedResponse({
-      description: 'AUTH_REQUIRED - Authentication required',
+      description:
+        'AUTH_REQUIRED - Authentication required; UNAUTHORIZED - Invalid or expired token; USER_NOT_FOUND - User not found; ACCOUNT_INACTIVE - Account is inactive',
     }),
   );

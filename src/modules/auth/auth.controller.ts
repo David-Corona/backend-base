@@ -11,7 +11,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiTags, ApiExtraModels } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
@@ -30,7 +30,6 @@ import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { ResendVerificationRequestDto } from './dto/resend-verification-request.dto';
 import { ChangePasswordRequestDto } from './dto/change-password-request.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
-import { PaginatedSessionsResponseDto } from './dto/paginated-sessions-response.dto';
 import {
   RegisterDocs,
   LoginDocs,
@@ -49,7 +48,6 @@ import {
 const AUTH_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_AUTH ?? '10', 10);
 
 @ApiTags('Auth')
-@ApiExtraModels(PaginatedSessionsResponseDto)
 @Controller('auth')
 @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
 export class AuthController {
