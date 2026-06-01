@@ -11,6 +11,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { ApiTags, ApiExtraModels } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
@@ -29,9 +30,26 @@ import { ResetPasswordRequestDto } from './dto/reset-password-request.dto';
 import { ResendVerificationRequestDto } from './dto/resend-verification-request.dto';
 import { ChangePasswordRequestDto } from './dto/change-password-request.dto';
 import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
+import { PaginatedSessionsResponseDto } from './dto/paginated-sessions-response.dto';
+import {
+  RegisterDocs,
+  LoginDocs,
+  RefreshDocs,
+  LogoutDocs,
+  VerifyEmailDocs,
+  ResendVerificationDocs,
+  ForgotPasswordDocs,
+  ResetPasswordDocs,
+  ChangePasswordDocs,
+  ListSessionsDocs,
+  TerminateSessionDocs,
+  TerminateAllOtherSessionsDocs,
+} from './auth.docs';
 
 const AUTH_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_AUTH ?? '10', 10);
 
+@ApiTags('Auth')
+@ApiExtraModels(PaginatedSessionsResponseDto)
 @Controller('auth')
 @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
 export class AuthController {
@@ -68,6 +86,7 @@ export class AuthController {
 
   @Post('register')
   @Public()
+  @RegisterDocs()
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() dto: RegisterRequestDto,
@@ -78,6 +97,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @LoginDocs()
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginRequestDto,
@@ -98,6 +118,7 @@ export class AuthController {
 
   @Post('refresh')
   @Public()
+  @RefreshDocs()
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Req() req: Request,
@@ -113,6 +134,7 @@ export class AuthController {
 
   @Post('logout')
   @Public()
+  @LogoutDocs()
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(
     @Req() req: Request,
@@ -128,6 +150,7 @@ export class AuthController {
 
   @Post('verify-email')
   @Public()
+  @VerifyEmailDocs()
   @HttpCode(HttpStatus.OK)
   async verifyEmail(
     @Body() dto: VerifyEmailRequestDto,
@@ -137,6 +160,7 @@ export class AuthController {
 
   @Post('resend-verification')
   @Public()
+  @ResendVerificationDocs()
   @HttpCode(HttpStatus.OK)
   async resendVerification(
     @Body() dto: ResendVerificationRequestDto,
@@ -146,6 +170,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @Public()
+  @ForgotPasswordDocs()
   @HttpCode(HttpStatus.OK)
   async forgotPassword(
     @Body() dto: ForgotPasswordRequestDto,
@@ -155,6 +180,7 @@ export class AuthController {
 
   @Post('reset-password')
   @Public()
+  @ResetPasswordDocs()
   @HttpCode(HttpStatus.OK)
   async resetPassword(
     @Body() dto: ResetPasswordRequestDto,
@@ -163,6 +189,7 @@ export class AuthController {
   }
 
   @Post('change-password')
+  @ChangePasswordDocs()
   @HttpCode(HttpStatus.OK)
   async changePassword(
     @CurrentUser('userId') userId: string,
@@ -188,6 +215,7 @@ export class AuthController {
   }
 
   @Get('sessions')
+  @ListSessionsDocs()
   async listSessions(
     @CurrentUser('userId') userId: string,
     @CurrentUser('sessionId') sessionId: string,
@@ -197,6 +225,7 @@ export class AuthController {
   }
 
   @Delete('sessions/:id')
+  @TerminateSessionDocs()
   @HttpCode(HttpStatus.NO_CONTENT)
   async terminateSession(@Param('id') id: string, @CurrentUser('userId') userId: string, @CurrentUser('sessionId') sessionId: string): Promise<void> {
     await this.sessionService.terminateSession(id, {
@@ -206,6 +235,7 @@ export class AuthController {
   }
 
   @Delete('sessions')
+  @TerminateAllOtherSessionsDocs()
   @HttpCode(HttpStatus.NO_CONTENT)
   async terminateAllOtherSessions(@CurrentUser('userId') userId: string, @CurrentUser('sessionId') sessionId: string): Promise<void> {
     await this.sessionService.terminateAllOtherSessions(userId, sessionId);

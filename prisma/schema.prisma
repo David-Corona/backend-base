@@ -87,7 +87,6 @@ model VerificationToken {
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@index([userId, type])
   @@map("verification_tokens")
 }

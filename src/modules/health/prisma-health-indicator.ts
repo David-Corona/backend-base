@@ -21,7 +21,7 @@ export class PrismaHealthIndicator extends HealthIndicator {
         { err: error instanceof Error ? error : String(error) },
         'Database health check failed',
       );
-      return this.getStatus(key, false, { error: error instanceof Error ? error.message : String(error) });
+      return this.getStatus(key, false, { error: 'Database connection failed' });
     }
   }
 }

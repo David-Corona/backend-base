@@ -24,6 +24,7 @@ import { CreateUserRequestDto } from './dto/create-user-request.dto';
 import { UpdateUserRequestDto } from './dto/update-user-request.dto';
 import { UpdateProfileRequestDto } from './dto/update-profile-request.dto';
 import { UsersPaginationQueryDto } from './dto/users-pagination-query.dto';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { AssignRoleRequestDto } from './dto/assign-role-request.dto';
 
 @Controller('users')
@@ -103,7 +104,7 @@ export class UsersController {
   @RequirePermissions(PERMISSIONS.USERS_READ)
   async listUserSessions(
     @Param('userId') userId: string,
-    @Query() pagination: UsersPaginationQueryDto,
+    @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<SessionResponseDto>> {
     return this.sessionService.listSessions(userId, undefined, pagination.page, pagination.limit);
   }
