@@ -16,6 +16,8 @@ export class ChangePasswordRequestDto {
   @ApiProperty({
     description: 'New password (must meet strength requirements)',
     example: 'NewSecureP@ss456',
+    minLength: 8,
+    maxLength: 128,
   })
   @IsString()
   @IsNotEmpty()

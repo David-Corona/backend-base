@@ -15,6 +15,8 @@ export class RegisterRequestDto {
   @ApiProperty({
     description: 'User password (must meet strength requirements)',
     example: 'SecureP@ss123',
+    minLength: 8,
+    maxLength: 128,
   })
   @IsPassword()
   password!: string;

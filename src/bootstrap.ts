@@ -80,8 +80,8 @@ function setupSwagger(app: INestApplication, configService: ConfigService, logge
     app,
     new DocumentBuilder()
       .setTitle('API')
-      .setDescription('')
-      .setVersion('1')
+      .setDescription('Backend API for user management, authentication, and role-based access control.')
+      .setVersion('1.0.0')
       .addBearerAuth()
       .build(),
   );

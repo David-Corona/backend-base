@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
 import { RequirePermissions } from '@/common/decorators/require-permissions.decorator';
 import { PERMISSIONS } from '@/common/permissions';
@@ -18,12 +19,21 @@ import { CreateRoleRequestDto } from './dto/create-role-request.dto';
 import { UpdateRoleRequestDto } from './dto/update-role-request.dto';
 import { RoleResponseDto } from './dto/role-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
+import {
+  GetRolesDocs,
+  GetRoleByIdDocs,
+  CreateRoleDocs,
+  UpdateRoleDocs,
+  DeleteRoleDocs,
+} from './roles.docs';
 
+@ApiTags('Roles')
 @Controller('roles')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Get()
+  @GetRolesDocs()
   @RequirePermissions(PERMISSIONS.ROLES_READ)
   async findAll(
     @Query() pagination: RolesPaginationQueryDto,
@@ -32,12 +42,14 @@ export class RolesController {
   }
 
   @Get(':id')
+  @GetRoleByIdDocs()
   @RequirePermissions(PERMISSIONS.ROLES_READ)
   async findOne(@Param('id') id: string): Promise<RoleResponseDto> {
     return this.rolesService.findOne(id);
   }
 
   @Post()
+  @CreateRoleDocs()
   @RequirePermissions(PERMISSIONS.ROLES_WRITE)
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateRoleRequestDto): Promise<RoleResponseDto> {
@@ -45,6 +57,7 @@ export class RolesController {
   }
 
   @Patch(':id')
+  @UpdateRoleDocs()
   @RequirePermissions(PERMISSIONS.ROLES_WRITE)
   async update(
     @Param('id') id: string,
@@ -54,6 +67,7 @@ export class RolesController {
   }
 
   @Delete(':id')
+  @DeleteRoleDocs()
   @RequirePermissions(PERMISSIONS.ROLES_DELETE)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string): Promise<void> {
