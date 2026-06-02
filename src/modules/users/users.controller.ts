@@ -11,6 +11,7 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { SessionService } from '@/modules/auth/session.service';
 import { NotSelfGuard } from '@/common/guards/not-self.guard';
@@ -24,8 +25,24 @@ import { CreateUserRequestDto } from './dto/create-user-request.dto';
 import { UpdateUserRequestDto } from './dto/update-user-request.dto';
 import { UpdateProfileRequestDto } from './dto/update-profile-request.dto';
 import { UsersPaginationQueryDto } from './dto/users-pagination-query.dto';
+import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { AssignRoleRequestDto } from './dto/assign-role-request.dto';
+import {
+  GetUsersDocs,
+  GetMeDocs,
+  GetUserByIdDocs,
+  CreateUserDocs,
+  UpdateMeDocs,
+  UpdateUserDocs,
+  DeactivateUserDocs,
+  ActivateUserDocs,
+  AssignRoleDocs,
+  ListUserSessionsDocs,
+  TerminateUserSessionDocs,
+  TerminateAllUserSessionsDocs,
+} from './users.docs';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(
@@ -35,6 +52,7 @@ export class UsersController {
 
   @Get()
   @RequirePermissions(PERMISSIONS.USERS_READ)
+  @GetUsersDocs()
   async findAll(
     @Query() pagination: UsersPaginationQueryDto,
   ): Promise<PaginatedResponse<UserResponseDto>> {
@@ -42,24 +60,28 @@ export class UsersController {
   }
 
   @Get('me')
+  @GetMeDocs()
   async findMe(@CurrentUser('userId') userId: string): Promise<UserResponseDto> {
     return this.usersService.findOne(userId);
   }
 
   @Get(':id')
   @RequirePermissions(PERMISSIONS.USERS_READ)
+  @GetUserByIdDocs()
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.findOne(id);
   }
 
   @Post()
   @RequirePermissions(PERMISSIONS.USERS_WRITE)
+  @CreateUserDocs()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateUserRequestDto): Promise<UserResponseDto> {
     return this.usersService.create(dto);
   }
 
   @Patch('me')
+  @UpdateMeDocs()
   async updateMe(
     @CurrentUser('userId') userId: string,
     @Body() dto: UpdateProfileRequestDto,
@@ -69,6 +91,7 @@ export class UsersController {
 
   @Patch(':id')
   @RequirePermissions(PERMISSIONS.USERS_WRITE)
+  @UpdateUserDocs()
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateUserRequestDto,
@@ -78,20 +101,23 @@ export class UsersController {
 
   @Delete(':id')
   @RequirePermissions(PERMISSIONS.USERS_DELETE)
-  @UseGuards(NotSelfGuard)
+  @DeactivateUserDocs()
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(NotSelfGuard)
   async deactivate(@Param('id') id: string): Promise<void> {
     await this.usersService.deactivate(id);
   }
 
   @Patch(':id/activate')
   @RequirePermissions(PERMISSIONS.USERS_WRITE)
+  @ActivateUserDocs()
   async activate(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.activate(id);
   }
 
   @Patch(':id/role')
   @RequirePermissions(PERMISSIONS.USERS_ASSIGN_ROLE)
+  @AssignRoleDocs()
   async assignRole(
     @Param('id') userId: string,
     @Body() dto: AssignRoleRequestDto,
@@ -101,15 +127,17 @@ export class UsersController {
 
   @Get(':userId/sessions')
   @RequirePermissions(PERMISSIONS.USERS_READ)
+  @ListUserSessionsDocs()
   async listUserSessions(
     @Param('userId') userId: string,
-    @Query() pagination: UsersPaginationQueryDto,
+    @Query() pagination: PaginationQueryDto,
   ): Promise<PaginatedResponse<SessionResponseDto>> {
     return this.sessionService.listSessions(userId, undefined, pagination.page, pagination.limit);
   }
 
   @Delete(':userId/sessions/:id')
   @RequirePermissions(PERMISSIONS.USERS_WRITE)
+  @TerminateUserSessionDocs()
   @HttpCode(HttpStatus.NO_CONTENT)
   async terminateUserSession(
     @Param('userId') userId: string,
@@ -120,6 +148,7 @@ export class UsersController {
 
   @Delete(':userId/sessions')
   @RequirePermissions(PERMISSIONS.USERS_WRITE)
+  @TerminateAllUserSessionsDocs()
   @HttpCode(HttpStatus.NO_CONTENT)
   async terminateAllUserSessions(
     @Param('userId') userId: string,

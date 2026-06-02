@@ -17,6 +17,8 @@ export const envSchema = z.object({
   LOG_REQUEST_BODIES: z.enum(['true', 'false']).optional(),
   ALLOWED_ORIGINS: z.string().optional(),
   TRUST_PROXY: z.coerce.number().int().min(0).max(1).default(0),
+  ADMIN_USER: z.string().min(1),
+  ADMIN_PASSWORD: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
