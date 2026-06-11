@@ -710,9 +710,9 @@ describe('AuthController (e2e)', () => {
       });
 
       expect(mockEmailService.sendPasswordResetEmail).toHaveBeenCalledTimes(1);
-      const emailCall = mockEmailService.sendPasswordResetEmail.mock.calls[0] as [string, string];
+      const emailCall = mockEmailService.sendPasswordResetEmail.mock.calls[0] as [string, string, string];
       expect(emailCall[0]).toBe('auth-user@example.com');
-      expect(emailCall[1]).toMatch(/^[a-f0-9]{128}$/);
+      expect(emailCall[1]).toMatch(/^http:\/\/localhost:4200\/auth\/reset-password\?token=[a-f0-9]{128}$/);
 
       const resetToken = await prisma.verificationToken.findFirst({
         where: { user: { email: 'auth-user@example.com' }, type: 'PASSWORD_RESET' },
@@ -749,16 +749,18 @@ describe('AuthController (e2e)', () => {
         .send({ email: 'auth-user@example.com' })
         .expect(200);
 
-      const firstEmailCall = mockEmailService.sendPasswordResetEmail.mock.calls[0] as [string, string];
-      const firstToken = firstEmailCall[1];
+      const firstEmailCall = mockEmailService.sendPasswordResetEmail.mock.calls[0] as [string, string, string];
+      const firstLink = firstEmailCall[1];
+      const firstToken = new URL(firstLink).searchParams.get('token')!;
 
       await request(app.getHttpServer() as Server)
         .post('/api/auth/forgot-password')
         .send({ email: 'auth-user@example.com' })
         .expect(200);
 
-      const secondEmailCall = mockEmailService.sendPasswordResetEmail.mock.calls[1] as [string, string];
-      const secondToken = secondEmailCall[1];
+      const secondEmailCall = mockEmailService.sendPasswordResetEmail.mock.calls[1] as [string, string, string];
+      const secondLink = secondEmailCall[1];
+      const secondToken = new URL(secondLink).searchParams.get('token')!;
 
       expect(firstToken).not.toBe(secondToken);
 
@@ -789,8 +791,9 @@ describe('AuthController (e2e)', () => {
       const forgotBody = forgotResponse.body as { message: string };
       expect(forgotBody.message).toBe('If an account with that email exists, we sent a reset link.');
 
-      const emailCall = mockEmailService.sendPasswordResetEmail.mock.calls[0] as [string, string];
-      const rawToken = emailCall[1];
+      const emailCall = mockEmailService.sendPasswordResetEmail.mock.calls[0] as [string, string, string];
+      const resetLink = emailCall[1];
+      const rawToken = new URL(resetLink).searchParams.get('token')!;
 
       // Login to create a session
       const loginResponse = await request(app.getHttpServer() as Server)

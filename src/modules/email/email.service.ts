@@ -13,8 +13,9 @@ export class EmailService {
     this.fromEmail = this.configService.getOrThrow<string>('FROM_EMAIL');
   }
 
-  async sendVerificationEmail(to: string, token: string, expiresIn: string): Promise<void> {
+  async sendVerificationEmail(to: string, link: string, token: string, expiresIn: string): Promise<void> {
     const html = VERIFICATION_HTML
+      .replaceAll('{{link}}', escapeHtml(link))
       .replaceAll('{{token}}', escapeHtml(token))
       .replaceAll('{{expiresIn}}', escapeHtml(expiresIn));
     await this.resend.emails.send({
@@ -25,9 +26,9 @@ export class EmailService {
     });
   }
 
-  async sendPasswordResetEmail(to: string, token: string, expiresIn: string): Promise<void> {
+  async sendPasswordResetEmail(to: string, link: string, expiresIn: string): Promise<void> {
     const html = PASSWORD_RESET_HTML
-      .replaceAll('{{token}}', escapeHtml(token))
+      .replaceAll('{{link}}', escapeHtml(link))
       .replaceAll('{{expiresIn}}', escapeHtml(expiresIn));
     await this.resend.emails.send({
       from: this.fromEmail,

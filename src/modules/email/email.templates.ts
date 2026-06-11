@@ -87,8 +87,7 @@ export const VERIFICATION_HTML = `<!doctype html>
       background-color: #f5f5f5;
       border-radius: 8px;
       padding: 16px;
-      font-size: 20px;
-      font-weight: bold;
+      font-size: 14px;
       word-break: break-all;
       text-align: center;
       border: 1px solid #e0e0e0;
@@ -115,17 +114,22 @@ export const VERIFICATION_HTML = `<!doctype html>
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
-                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">Thank you for signing up. Please use the token below to verify your email address:</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td align="left" class="token-box" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
-                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">{{token}}</div>
+                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">Thank you for signing up. Click the button below to verify your email address:</div>
                       </td>
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
-                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#666666;">Or visit the verification page and enter the token above.</div>
+                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;"><tbody><tr><td align="center" bgcolor="#4A90D9" role="presentation" style="border:none;border-radius:8px;cursor:auto;mso-padding-alt:12px 24px;background:#4A90D9;" valign="middle"><a href="{{link}}" style="display:inline-block;background:#4A90D9;color:#ffffff;font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:bold;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:12px 24px;border-radius:8px;mso-padding-alt:0;" target="_blank">Verify Email Address</a></td></tr></tbody></table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="left" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
+                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#666666;">If the button doesn&#39;t work, copy and paste this link into your browser:</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="left" class="token-box" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
+                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">{{link}}</div>
                       </td>
                     </tr>
                     <tr>
@@ -249,8 +253,7 @@ export const PASSWORD_RESET_HTML = `<!doctype html>
       background-color: #f5f5f5;
       border-radius: 8px;
       padding: 16px;
-      font-size: 20px;
-      font-weight: bold;
+      font-size: 14px;
       word-break: break-all;
       text-align: center;
       border: 1px solid #e0e0e0;
@@ -277,22 +280,27 @@ export const PASSWORD_RESET_HTML = `<!doctype html>
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
-                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">You requested to reset your password. Please use the token below:</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td align="left" class="token-box" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
-                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">{{token}}</div>
+                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">You requested to reset your password. Click the button below to set a new password:</div>
                       </td>
                     </tr>
                     <tr>
                       <td align="left" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
-                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">Visit the password reset page and enter the token above to set a new password.</div>
+                        <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;"><tbody><tr><td align="center" bgcolor="#4A90D9" role="presentation" style="border:none;border-radius:8px;cursor:auto;mso-padding-alt:12px 24px;background:#4A90D9;" valign="middle"><a href="{{link}}" style="display:inline-block;background:#4A90D9;color:#ffffff;font-family:Arial, Helvetica, sans-serif;font-size:16px;font-weight:bold;line-height:120%;margin:0;text-decoration:none;text-transform:none;padding:12px 24px;border-radius:8px;mso-padding-alt:0;" target="_blank">Reset Password</a></td></tr></tbody></table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="left" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
+                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#666666;">If the button doesn&#39;t work, copy and paste this link into your browser:</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="left" class="token-box" style="font-size:0px;padding:0 16px 16px;word-break:break-word;">
+                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:left;color:#333333;">{{link}}</div>
                       </td>
                     </tr>
                     <tr>
                       <td align="center" style="font-size:0px;padding:16px;word-break:break-word;">
-                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:center;color:#666666;">This token expires in {{expiresIn}}.</div>
+                        <div style="font-family:Arial, Helvetica, sans-serif;font-size:14px;line-height:1.5;text-align:center;color:#666666;">This link expires in {{expiresIn}}.</div>
                       </td>
                     </tr>
                   </tbody>

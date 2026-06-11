@@ -103,7 +103,8 @@ export class AuthService {
       });
 
       try {
-        await this.emailService.sendVerificationEmail(email, verificationToken, humanizeDuration(verificationExpiry));
+        const link = `${this.configService.getOrThrow<string>('FRONTEND_URL')}/auth/verify-email?token=${verificationToken}`;
+        await this.emailService.sendVerificationEmail(email, link, verificationToken, humanizeDuration(verificationExpiry));
       } catch (error) {
         this.logger.warn(
           { err: error instanceof Error ? error : String(error), email },
@@ -298,7 +299,8 @@ export class AuthService {
     });
 
     try {
-      await this.emailService.sendPasswordResetEmail(email, resetToken, humanizeDuration(expiryDuration));
+      const link = `${this.configService.getOrThrow<string>('FRONTEND_URL')}/auth/reset-password?token=${resetToken}`;
+      await this.emailService.sendPasswordResetEmail(email, link, humanizeDuration(expiryDuration));
     } catch (error) {
       this.logger.warn(
         { err: error instanceof Error ? error : String(error), email },
@@ -435,7 +437,8 @@ export class AuthService {
     });
 
     try {
-      await this.emailService.sendVerificationEmail(email, verificationToken, humanizeDuration(verificationExpiry));
+      const link = `${this.configService.getOrThrow<string>('FRONTEND_URL')}/auth/verify-email?token=${verificationToken}`;
+      await this.emailService.sendVerificationEmail(email, link, verificationToken, humanizeDuration(verificationExpiry));
     } catch (error) {
       this.logger.warn(
         { err: error instanceof Error ? error : String(error), email },
