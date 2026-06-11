@@ -46,8 +46,9 @@ describe('EmailService', () => {
   });
 
   describe('sendVerificationEmail', () => {
-    it('sends verification email with token and expiry', async () => {
-      await service.sendVerificationEmail('user@example.com', 'abc123', '24 hours');
+    it('sends verification email with link, token and expiry', async () => {
+      const link = 'http://localhost:4200/auth/verify-email?token=abc123';
+      await service.sendVerificationEmail('user@example.com', link, 'abc123', '24 hours');
 
       expect(mockSend).toHaveBeenCalledTimes(1);
       const call = mockSend.mock.calls[0] as [Record<string, unknown>];
@@ -56,33 +57,45 @@ describe('EmailService', () => {
         to: 'user@example.com',
         subject: 'Verify your email address',
       });
+      expect(call[0].html).toContain(link);
       expect(call[0].html).toContain('abc123');
       expect(call[0].html).toContain('24 hours');
       expect(call[0].html).toContain('Verify your email address');
+      expect(call[0].html).not.toContain('{{link}}');
       expect(call[0].html).not.toContain('{{token}}');
       expect(call[0].html).not.toContain('{{expiresIn}}');
     });
 
-    it('escapes HTML in token to prevent injection', async () => {
-      const maliciousToken = '<script>alert("xss")</script>';
-      await service.sendVerificationEmail('user@example.com', maliciousToken, '24 hours');
+    it('escapes HTML in link to prevent injection', async () => {
+      const maliciousLink = 'http://evil.com" onclick="alert(1)';
+      await service.sendVerificationEmail('user@example.com', maliciousLink, 'abc123', '24 hours');
       const call = mockSend.mock.calls[0] as [Record<string, unknown>];
-      expect(call[0].html).toContain('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
-      expect(call[0].html).not.toContain('<script>');
+      expect(call[0].html).not.toContain('onclick="alert(1)"');
+      expect(call[0].html).toContain('http://evil.com&quot; onclick=&quot;alert(1)');
+    });
+
+    it('does not render raw token in email body', async () => {
+      const token = 'abc123def456';
+      const link = 'http://localhost:4200/auth/verify-email?token=abc123def456';
+      await service.sendVerificationEmail('user@example.com', link, token, '24 hours');
+      const call = mockSend.mock.calls[0] as [Record<string, unknown>];
+      expect(call[0].html).toContain(link);
+      expect(call[0].html).not.toContain('{{link}}');
     });
 
     it('propagates errors from resend', async () => {
       mockSend.mockRejectedValue(new Error('API failure'));
 
       await expect(
-        service.sendVerificationEmail('user@example.com', 'abc123', '24 hours'),
+        service.sendVerificationEmail('user@example.com', 'http://localhost:4200/auth/verify-email?token=abc123', 'abc123', '24 hours'),
       ).rejects.toThrow('API failure');
     });
   });
 
   describe('sendPasswordResetEmail', () => {
-    it('sends password reset email with token and expiry', async () => {
-      await service.sendPasswordResetEmail('user@example.com', 'reset456', '1 hour');
+    it('sends password reset email with link and expiry', async () => {
+      const link = 'http://localhost:4200/auth/reset-password?token=reset456';
+      await service.sendPasswordResetEmail('user@example.com', link, '1 hour');
 
       expect(mockSend).toHaveBeenCalledTimes(1);
       const call = mockSend.mock.calls[0] as [Record<string, unknown>];
@@ -91,18 +104,26 @@ describe('EmailService', () => {
         to: 'user@example.com',
         subject: 'Reset your password',
       });
-      expect(call[0].html).toContain('reset456');
+      expect(call[0].html).toContain(link);
       expect(call[0].html).toContain('1 hour');
       expect(call[0].html).toContain('Reset your password');
-      expect(call[0].html).not.toContain('{{token}}');
+      expect(call[0].html).not.toContain('{{link}}');
       expect(call[0].html).not.toContain('{{expiresIn}}');
+    });
+
+    it('escapes HTML in link to prevent injection', async () => {
+      const maliciousLink = 'http://evil.com" onclick="alert(1)';
+      await service.sendPasswordResetEmail('user@example.com', maliciousLink, '1 hour');
+      const call = mockSend.mock.calls[0] as [Record<string, unknown>];
+      expect(call[0].html).not.toContain('onclick="alert(1)"');
+      expect(call[0].html).toContain('http://evil.com&quot; onclick=&quot;alert(1)');
     });
 
     it('propagates errors from resend', async () => {
       mockSend.mockRejectedValue(new Error('API failure'));
 
       await expect(
-        service.sendPasswordResetEmail('user@example.com', 'reset456', '1 hour'),
+        service.sendPasswordResetEmail('user@example.com', 'http://localhost:4200/auth/reset-password?token=reset456', '1 hour'),
       ).rejects.toThrow('API failure');
     });
   });

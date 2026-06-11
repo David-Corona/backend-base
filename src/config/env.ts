@@ -14,6 +14,7 @@ export const envSchema = z.object({
   RATE_LIMIT_AUTH: z.coerce.number().default(10),
   RESEND_API_KEY: z.string().min(1),
   FROM_EMAIL: z.string().email(),
+  FRONTEND_URL: z.string().url(),
   LOG_REQUEST_BODIES: z.enum(['true', 'false']).optional(),
   ALLOWED_ORIGINS: z.string().optional(),
   TRUST_PROXY: z.coerce.number().int().min(0).max(1).default(0),

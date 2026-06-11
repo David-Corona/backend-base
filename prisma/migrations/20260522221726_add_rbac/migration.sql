@@ -17,7 +17,7 @@ CREATE TABLE "roles" (
 
 -- Insert default user role for backfilling existing users
 INSERT INTO "roles" ("id", "name", "description", "createdAt", "updatedAt")
-VALUES ('default-user-role', 'user', 'Default user role with basic access', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ('cmq9ubegj000000ucfz0cch31', 'user', 'Default user role with basic access', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- CreateTable
 CREATE TABLE "permissions" (
@@ -49,7 +49,7 @@ CREATE UNIQUE INDEX "permissions_key_key" ON "permissions"("key");
 ALTER TABLE "User" ADD COLUMN "roleId" TEXT;
 
 -- Backfill existing users with the default role
-UPDATE "User" SET "roleId" = 'default-user-role';
+UPDATE "User" SET "roleId" = 'cmq9ubegj000000ucfz0cch31';
 
 -- Set NOT NULL after backfill
 ALTER TABLE "User" ALTER COLUMN "roleId" SET NOT NULL;

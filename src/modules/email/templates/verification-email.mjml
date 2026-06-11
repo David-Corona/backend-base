@@ -11,8 +11,7 @@
         background-color: #f5f5f5;
         border-radius: 8px;
         padding: 16px;
-        font-size: 20px;
-        font-weight: bold;
+        font-size: 14px;
         word-break: break-all;
         text-align: center;
         border: 1px solid #e0e0e0;
@@ -26,13 +25,16 @@
           Verify your email address
         </mj-text>
         <mj-text padding="0 16px 16px">
-          Thank you for signing up. Please use the token below to verify your email address:
+          Thank you for signing up. Click the button below to verify your email address:
+        </mj-text>
+        <mj-button background-color="#4A90D9" color="#ffffff" border-radius="8px" inner-padding="12px 24px" href="{{link}}" font-size="16px" font-weight="bold">
+          Verify Email Address
+        </mj-button>
+        <mj-text padding="0 16px 16px" color="#666666" font-size="14px">
+          If the button doesn't work, copy and paste this link into your browser:
         </mj-text>
         <mj-text css-class="token-box" padding="0 16px 16px">
-          {{token}}
-        </mj-text>
-        <mj-text padding="0 16px 16px" color="#666666" font-size="14px">
-          Or visit the verification page and enter the token above.
+          {{link}}
         </mj-text>
         <mj-text align="center" padding="16px" color="#666666" font-size="14px">
           This token expires in {{expiresIn}}.

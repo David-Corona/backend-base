@@ -25,6 +25,10 @@ describe('AuthService', () => {
   beforeEach(async () => {
     jwtService = { sign: jest.fn() };
     configService = { get: jest.fn(), getOrThrow: jest.fn() };
+    configService.getOrThrow.mockImplementation((key: string) => {
+      if (key === 'FRONTEND_URL') return 'http://localhost:4200';
+      return 'mock-value';
+    });
     emailService = { sendVerificationEmail: jest.fn(), sendPasswordResetEmail: jest.fn() };
     sessionService = {
       create: jest.fn(),
@@ -104,10 +108,11 @@ describe('AuthService', () => {
       ).toBe('test-id');
 
       expect(emailService.sendVerificationEmail.mock.calls.length).toBe(1);
-      const emailCall = emailService.sendVerificationEmail.mock.calls[0] as [string, string, string];
+      const emailCall = emailService.sendVerificationEmail.mock.calls[0] as [string, string, string, string];
       expect(emailCall[0]).toBe('test@example.com');
-      expect(emailCall[1]).toMatch(/^[a-f0-9]{128}$/);
-      expect(emailCall[2]).toBe('24 hours');
+      expect(emailCall[1]).toMatch(/^http:\/\/localhost:4200\/auth\/verify-email\?token=[a-f0-9]{128}$/);
+      expect(emailCall[2]).toMatch(/^[a-f0-9]{128}$/);
+      expect(emailCall[3]).toBe('24 hours');
     });
 
     it('succeeds silently when email send fails', async () => {
@@ -557,7 +562,7 @@ describe('AuthService', () => {
       expect(emailService.sendPasswordResetEmail.mock.calls.length).toBe(1);
       const emailCall = emailService.sendPasswordResetEmail.mock.calls[0] as [string, string, string];
       expect(emailCall[0]).toBe('test@example.com');
-      expect(emailCall[1]).toMatch(/^[a-f0-9]{128}$/);
+      expect(emailCall[1]).toMatch(/^http:\/\/localhost:4200\/auth\/reset-password\?token=[a-f0-9]{128}$/);
       expect(emailCall[2]).toBe('1 hour');
     });
 
@@ -824,10 +829,11 @@ describe('AuthService', () => {
       expect(prisma.verificationToken.deleteMany.mock.calls.length).toBe(1);
       expect(prisma.verificationToken.create.mock.calls.length).toBe(1);
       expect(emailService.sendVerificationEmail.mock.calls.length).toBe(1);
-      const emailCall = emailService.sendVerificationEmail.mock.calls[0] as [string, string, string];
+      const emailCall = emailService.sendVerificationEmail.mock.calls[0] as [string, string, string, string];
       expect(emailCall[0]).toBe('test@example.com');
-      expect(emailCall[1]).toMatch(/^[a-f0-9]{128}$/);
-      expect(emailCall[2]).toBe('24 hours');
+      expect(emailCall[1]).toMatch(/^http:\/\/localhost:4200\/auth\/verify-email\?token=[a-f0-9]{128}$/);
+      expect(emailCall[2]).toMatch(/^[a-f0-9]{128}$/);
+      expect(emailCall[3]).toBe('24 hours');
     });
 
     it('returns same message when user not found', async () => {
