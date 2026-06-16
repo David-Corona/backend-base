@@ -10,6 +10,7 @@ import * as crypto from 'crypto';
 
 export function configureApp(app: INestApplication, configService: ConfigService): void {
   const logger = app.get(Logger);
+  const expressApp = app.getHttpAdapter().getInstance() as Express;
 
   app.useLogger(logger);
   app.useGlobalInterceptors(new LoggerErrorInterceptor());
@@ -37,7 +38,6 @@ export function configureApp(app: INestApplication, configService: ConfigService
   app.setGlobalPrefix('api');
 
   const trustProxy = configService.get<number>('TRUST_PROXY');
-  const expressApp = app.getHttpAdapter().getInstance() as Express;
   expressApp.set('trust proxy', trustProxy);
 
   setupSwagger(app, configService, logger);

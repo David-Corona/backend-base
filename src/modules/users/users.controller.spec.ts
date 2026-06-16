@@ -18,6 +18,7 @@ describe('UsersController', () => {
     isActive: true,
     isVerified: true,
     role: { id: 'role-1', name: 'user' },
+    permissions: ['users:read'],
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
   };

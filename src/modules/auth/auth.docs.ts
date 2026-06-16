@@ -79,17 +79,10 @@ export const RefreshDocs = () =>
     ApiOperation({
       summary: 'Refresh access token',
       description:
-        'Exchanges a valid refresh token (from HTTP-only cookie) for a new JWT access token and rotates the refresh token.',
+        'Exchanges a valid refresh token (from HTTP-only cookie) for a new JWT access token and rotates the refresh token. Also returns the current user profile so the frontend can keep cached user data up to date.',
     }),
     ApiOkResponse({
-      schema: {
-        properties: {
-          accessToken: {
-            type: 'string',
-            example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-          },
-        },
-      },
+      type: LoginResponseDto,
       description: 'Access token refreshed successfully',
     }),
     ApiUnauthorizedResponse({

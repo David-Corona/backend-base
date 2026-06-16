@@ -1,94 +1,83 @@
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'crypto';
-import { stdSerializers } from 'pino-http';
 import type { Request, Response } from 'express';
+import { IncomingMessage, ServerResponse } from 'http';
 
 export const REDACT_PATHS = [
-  'req.body.password',
-  'req.body.newPassword',
-  'req.body.token',
-  'req.cookies.refresh_token',
-  'req.headers.authorization',
-  'req.headers.cookie',
-  'res.headers.set-cookie',
+  'request.headers.authorization',
+  'request.headers.cookie',
+  'request.headers["x-api-key"]',
+  'request.cookies.refresh_token',
+  'requestBody.password',
+  'requestBody.access_token',
+  'requestBody.refresh_token',
+  'requestBody.token',
+  'requestBody.secret',
+  'requestBody.currentPassword',
+  'requestBody.newPassword',
+  'responseBody.access_token',
+  'responseBody.refresh_token',
+  'responseBody.token',
+  'response.headers.set-cookie',
 ];
 
-export function parseLogRequestBodies(
-  logRequestBodiesRaw: string | undefined,
-  isProduction: boolean,
-): boolean {
-  if (logRequestBodiesRaw === undefined) {
-    return !isProduction;
-  }
-  return logRequestBodiesRaw === 'true';
-}
-
-export function buildReqSerializer(
-  logRequestBodies: boolean,
-): (req: Request) => Record<string, unknown> {
+export function buildReqSerializer(): (req: Request) => Record<string, unknown> {
   return (req: Request) => {
-    const serialized = stdSerializers.req(
-      req,
-    );
-    // pino-http calls serializers at response-finish time, so req.res.statusCode
-    // is always the final response status. This is an implicit dependency on
-    // pino-http's internal behavior — if request-start logging is enabled,
-    // req.res.statusCode will be undefined and error bodies will be omitted.
-    const statusCode = (req as unknown as { res?: { statusCode?: number } }).res
-      ?.statusCode;
-    const isError = (statusCode ?? 0) >= 400;
     return {
-      ...serialized,
-      id: (req as unknown as { id?: string }).id,
-      body: logRequestBodies || isError ? req.body : undefined,
+      id: req.id,
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      params: req.params,
       query: req.query,
       cookies: req.cookies,
-      userId: req.user?.userId,
-      roleId: req.user?.roleId,
+      remoteAddress: req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
+      userAgent: req.headers['user-agent'],
     };
   };
 }
 
 export function buildResSerializer(): (res: Response) => Record<string, unknown> {
   return (res: Response) => {
-    const serialized = stdSerializers.res(
-      res,
-    );
     return {
-      ...serialized,
-      body: (res as unknown as { locals?: { errorResponseBody?: unknown } }).locals
-        ?.errorResponseBody,
+      statusCode: res.statusCode,
+      contentLength: (res as any).headers?.['content-length'],
     };
   };
 }
 
-export function buildGenReqId(): (
-  req: import('http').IncomingMessage,
-  res: import('http').ServerResponse,
-) => string {
-  return (_req, res) => {
-    const response = res as Response;
-    const id = randomUUID();
-    response.setHeader('X-Request-Id', id);
+export function buildGenReqId(): (req: IncomingMessage, res: ServerResponse) => string {
+  return (req, res) => {
+    const expressReq = req as Request;
+    const expressRes = res as Response;
+    const id = (expressReq.id || (expressReq.headers['x-request-id'] as string) || randomUUID()) as string;
+    expressRes.setHeader('X-Request-Id', id);
     return id;
   };
 }
 
-// NOTE: pino-http calls customProps at request-start time, before NestJS
-// guards populate req.user. At that point userId/roleId are undefined.
-// The values are correctly populated in request-finish logs because
-// buildReqSerializer (which runs at finish time) also includes them.
-// We keep this for any request-scoped logs emitted during handling.
 export function buildCustomProps(
-  req: import('http').IncomingMessage,
+  req: IncomingMessage,
+  res: ServerResponse,
 ): Record<string, unknown> {
-  const request = req as Request;
-  return {
-    userId: request.user?.userId,
-    roleId: request.user?.roleId,
+  const expressReq = req as Request;
+  const expressRes = res as Response;
+  const props: Record<string, unknown> = {
+    userId: expressReq.user?.userId,
+    roleId: expressReq.user?.roleId,
   };
+
+  if (expressReq.body && typeof expressReq.body === 'object' && Object.keys(expressReq.body).length > 0) {
+    props.requestBody = expressReq.body;
+  }
+
+  if (expressRes.locals?.errorResponseBody !== undefined) {
+    props.responseBody = expressRes.locals.errorResponseBody;
+  }
+
+  return props;
 }
 
 @Module({
@@ -97,33 +86,65 @@ export function buildCustomProps(
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const isProduction = configService.get('NODE_ENV') === 'production';
-        const logRequestBodiesRaw = configService.get<string>('LOG_REQUEST_BODIES');
-        const logRequestBodies = parseLogRequestBodies(
-          logRequestBodiesRaw,
-          isProduction,
-        );
         const logLevel = isProduction ? 'info' : 'debug';
 
         return {
           pinoHttp: {
+            messageKey: 'message',
             level: logLevel,
             transport: !isProduction
               ? {
                   target: 'pino-pretty',
-                  options: { singleLine: true },
+                  options: {
+                    colorize: true,
+                    translateTime: 'HH:MM:ss.l',
+                    ignore: 'pid,hostname',
+                    singleLine: false,
+                  },
                 }
               : undefined,
+            wrapSerializers: false,
             serializers: {
-              req: buildReqSerializer(logRequestBodies),
+              req: buildReqSerializer(),
               res: buildResSerializer(),
             },
             redact: {
               paths: REDACT_PATHS,
-              remove: false,
+              remove: true,
             },
             genReqId: buildGenReqId(),
-            customProps: (req: unknown) => buildCustomProps(req as Request),
+            customProps: (req: unknown, res: unknown) => buildCustomProps(req as Request, res as Response),
+            autoLogging: {
+              ignore: (req: IncomingMessage) => {
+                const expressReq = req as Request;
+                const ignorePaths = ['/health', '/api/health', '/health/liveness', '/health/readiness', '/metrics'];
+                return ignorePaths.includes(expressReq.path);
+              },
+            },
+            customReceivedObject: () => {
+              return { level: 'trace' };
+            },
+            customSuccessMessage: (req: IncomingMessage, res: ServerResponse) => {
+              const expressReq = req as Request;
+              return `[${expressReq.id}] ${expressReq.method} ${expressReq.path} ${res.statusCode}`;
+            },
+            customErrorMessage: (req: IncomingMessage, res: ServerResponse, err: Error) => {
+              const expressReq = req as Request;
+              return `[${expressReq.id}] ${expressReq.method} ${expressReq.path} ${res.statusCode} - ${err.message}`;
+            },
+            customLogLevel: (_req: IncomingMessage, res: ServerResponse, err?: Error) => {
+              if (res.statusCode >= 500 || err) return 'error';
+              if (res.statusCode >= 400) return 'warn';
+              return 'info';
+            },
+            customAttributeKeys: {
+              req: 'request',
+              res: 'response',
+              err: 'error',
+              responseTime: 'duration',
+            },
           },
+          forRoutes: [{ path: '{*splat}', method: RequestMethod.ALL }],
         };
       },
       inject: [ConfigService],
