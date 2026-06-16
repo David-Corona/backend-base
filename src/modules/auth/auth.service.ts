@@ -189,6 +189,7 @@ export class AuthService {
       isActive: user.isActive,
       isVerified: user.isVerified,
       role: { id: user.role.id, name: user.role.name },
+      permissions,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
@@ -201,6 +202,7 @@ export class AuthService {
   ): Promise<{
     accessToken: string;
     refreshToken: string;
+    user: UserResponseDto;
     expiresAt: Date;
   }> {
     if (!refreshToken) {
@@ -244,11 +246,14 @@ export class AuthService {
 
       const user = await tx.user.findUnique({
         where: { id: session.userId },
-        select: {
-          roleId: true,
-          isActive: true,
-          isVerified: true,
-          role: { select: { permissions: { include: { permission: { select: { key: true } } } } } },
+        include: {
+          role: {
+            select: {
+              id: true,
+              name: true,
+              permissions: { include: { permission: { select: { key: true } } } },
+            },
+          },
         },
       });
 
@@ -257,9 +262,21 @@ export class AuthService {
       }
 
       const permissions = user.role.permissions.map((rp) => rp.permission.key);
-      const accessToken = this.jwtService.sign({ sub: session.userId, roleId: user.roleId, sid: newSession.id, permissions });
+      const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: newSession.id, permissions });
 
-      return { accessToken, refreshToken: newRefreshToken, expiresAt };
+      const userDto: UserResponseDto = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isActive: user.isActive,
+        isVerified: user.isVerified,
+        role: { id: user.role.id, name: user.role.name },
+        permissions,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      };
+
+      return { accessToken, refreshToken: newRefreshToken, user: userDto, expiresAt };
     });
   }
 
@@ -522,6 +539,7 @@ export class AuthService {
       isActive: user.isActive,
       isVerified: user.isVerified,
       role: { id: user.role.id, name: user.role.name },
+      permissions,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

@@ -258,6 +258,7 @@ describe('AuthService', () => {
         isActive: true,
         isVerified: true,
         role: { id: 'role-1', name: 'user' },
+        permissions: ['users:read', 'roles:read'],
         createdAt: expect.any(Date) as Date,
         updatedAt: expect.any(Date) as Date,
       });
@@ -331,7 +332,7 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
-    it('returns new tokens and rotates the session', async () => {
+    it('returns new tokens, user, and rotates the session', async () => {
       const rawToken = 'a'.repeat(128);
       const tokenHash = createHash('sha256').update(rawToken).digest('hex');
 
@@ -348,15 +349,21 @@ describe('AuthService', () => {
       });
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
-        roleId: 'role-1',
+        email: 'test@example.com',
+        name: null,
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         role: {
+          id: 'role-1',
+          name: 'user',
           permissions: [
             { permission: { key: 'users:read' } },
             { permission: { key: 'roles:read' } },
           ],
         },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
@@ -365,6 +372,17 @@ describe('AuthService', () => {
       expect(jwtService.sign).toHaveBeenCalledWith({ sub: 'user-id', roleId: 'role-1', sid: 'new-session-id', permissions: ['users:read', 'roles:read'] });
       expect(result.accessToken).toBe('new-jwt-access-token');
       expect(result.refreshToken).toMatch(/^[a-f0-9]{128}$/);
+      expect(result.user).toEqual({
+        id: 'user-id',
+        email: 'test@example.com',
+        name: null,
+        isActive: true,
+        isVerified: true,
+        role: { id: 'role-1', name: 'user' },
+        permissions: ['users:read', 'roles:read'],
+        createdAt: expect.any(Date) as Date,
+        updatedAt: expect.any(Date) as Date,
+      });
       expect(result.expiresAt).toBeInstanceOf(Date);
       expect(sessionService.consumeSessionByTokenHashInTransaction).toHaveBeenCalledWith(
         prisma,
@@ -433,9 +451,18 @@ describe('AuthService', () => {
       });
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
-        roleId: 'role-1',
+        email: 'test@example.com',
+        name: null,
         isActive: false,
         isVerified: true,
+        roleId: 'role-1',
+        role: {
+          id: 'role-1',
+          name: 'user',
+          permissions: [],
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as never);
 
       await expect(
@@ -459,9 +486,18 @@ describe('AuthService', () => {
       });
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
-        roleId: 'role-1',
+        email: 'test@example.com',
+        name: null,
         isActive: true,
         isVerified: false,
+        roleId: 'role-1',
+        role: {
+          id: 'role-1',
+          name: 'user',
+          permissions: [],
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as never);
 
       await expect(
@@ -485,19 +521,36 @@ describe('AuthService', () => {
       });
       prisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
-        roleId: 'role-1',
+        email: 'test@example.com',
+        name: null,
         isActive: true,
         isVerified: true,
+        roleId: 'role-1',
         role: {
+          id: 'role-1',
+          name: 'user',
           permissions: [
             { permission: { key: 'users:read' } },
           ],
         },
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as never);
       jwtService.sign.mockReturnValue('new-jwt-access-token');
 
       // First use succeeds
-      await service.refresh(rawToken);
+      const firstResult = await service.refresh(rawToken);
+      expect(firstResult.user).toEqual({
+        id: 'user-id',
+        email: 'test@example.com',
+        name: null,
+        isActive: true,
+        isVerified: true,
+        role: { id: 'role-1', name: 'user' },
+        permissions: ['users:read'],
+        createdAt: expect.any(Date) as Date,
+        updatedAt: expect.any(Date) as Date,
+      });
 
       // Second use fails because session was already deleted
       const prismaError = new Prisma.PrismaClientKnownRequestError(

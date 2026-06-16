@@ -20,7 +20,7 @@ const userSelect = {
   isVerified: true,
   createdAt: true,
   updatedAt: true,
-  role: { select: { id: true, name: true } },
+  role: { select: { id: true, name: true, permissions: { include: { permission: { select: { key: true } } } } } },
 } as const;
 
 function toUserResponseDto(user: {
@@ -29,7 +29,11 @@ function toUserResponseDto(user: {
   name: string | null;
   isActive: boolean;
   isVerified: boolean;
-  role: { id: string; name: string };
+  role: {
+    id: string;
+    name: string;
+    permissions: { permission: { key: string } }[];
+  };
   createdAt: Date;
   updatedAt: Date;
 }): UserResponseDto {
@@ -39,7 +43,8 @@ function toUserResponseDto(user: {
     name: user.name,
     isActive: user.isActive,
     isVerified: user.isVerified,
-    role: user.role,
+    role: { id: user.role.id, name: user.role.name },
+    permissions: user.role.permissions.map((rp) => rp.permission.key),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

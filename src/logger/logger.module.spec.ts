@@ -3,140 +3,108 @@ import {
   buildResSerializer,
   buildGenReqId,
   buildCustomProps,
-  parseLogRequestBodies,
   REDACT_PATHS,
 } from './logger.module';
-import { stdSerializers } from 'pino-http';
 
 describe('buildReqSerializer', () => {
   const baseReq = {
+    id: 'req-id-123',
     method: 'POST',
     url: '/api/auth/login',
-    headers: {},
+    path: '/api/auth/login',
+    params: {},
     query: { foo: 'bar' },
-    body: { email: 'test@example.com', password: 'secret123' },
     cookies: { refresh_token: 'abc123' },
+    headers: {
+      'user-agent': 'test-agent',
+      'x-forwarded-for': '1.2.3.4',
+    },
+    socket: { remoteAddress: '127.0.0.1' },
+    body: { email: 'test@example.com', password: 'secret123' },
     user: { userId: 'user-1', roleId: 'role-1' },
-    id: 'req-id-123',
-    res: { statusCode: 200 },
   };
 
-  it('includes body when logRequestBodies is true', () => {
-    const serializer = buildReqSerializer(true);
+  it('returns request metadata', () => {
+    const serializer = buildReqSerializer();
     const result = serializer(baseReq as any);
 
-    expect(result.body).toEqual(baseReq.body);
-    expect(result.query).toEqual(baseReq.query);
-    expect(result.cookies).toEqual(baseReq.cookies);
-    expect(result.userId).toBe('user-1');
-    expect(result.roleId).toBe('role-1');
     expect(result.id).toBe('req-id-123');
     expect(result.method).toBe('POST');
     expect(result.url).toBe('/api/auth/login');
+    expect(result.path).toBe('/api/auth/login');
+    expect(result.params).toEqual({});
+    expect(result.query).toEqual({ foo: 'bar' });
+    expect(result.cookies).toEqual({ refresh_token: 'abc123' });
+    expect(result.remoteAddress).toBe('1.2.3.4');
+    expect(result.userAgent).toBe('test-agent');
   });
 
-  it('omits body on success when logRequestBodies is false', () => {
-    const serializer = buildReqSerializer(false);
-    const result = serializer(baseReq as any);
+  it('falls back to socket remoteAddress when x-forwarded-for is missing', () => {
+    const serializer = buildReqSerializer();
+    const reqWithoutForwardedFor = { ...baseReq, headers: { 'user-agent': 'test-agent' } };
+    const result = serializer(reqWithoutForwardedFor as any);
 
-    expect(result.body).toBeUndefined();
-    expect(result.query).toEqual(baseReq.query);
-    expect(result.cookies).toEqual(baseReq.cookies);
-    expect(result.userId).toBe('user-1');
-    expect(result.roleId).toBe('role-1');
-    expect(result.id).toBe('req-id-123');
+    expect(result.remoteAddress).toBe('127.0.0.1');
   });
 
-  it('includes body on error responses even when logRequestBodies is false', () => {
-    const serializer = buildReqSerializer(false);
-    const errorReq = { ...baseReq, res: { statusCode: 400 } };
-    const result = serializer(errorReq as any);
+  it('handles requests without cookies', () => {
+    const serializer = buildReqSerializer();
+    const reqWithoutCookies = { ...baseReq, cookies: undefined };
+    const result = serializer(reqWithoutCookies as any);
 
-    expect(result.body).toEqual(baseReq.body);
-    expect(result.id).toBe('req-id-123');
-  });
-
-  it('handles requests without user (public routes)', () => {
-    const serializer = buildReqSerializer(true);
-    const reqWithoutUser = { ...baseReq, user: undefined };
-    const result = serializer(reqWithoutUser as any);
-
-    expect(result.userId).toBeUndefined();
-    expect(result.roleId).toBeUndefined();
-    expect(result.body).toEqual(baseReq.body);
-    expect(result.id).toBe('req-id-123');
-  });
-
-  it('handles requests without body', () => {
-    const serializer = buildReqSerializer(true);
-    const reqWithoutBody = { ...baseReq, body: undefined };
-    const result = serializer(reqWithoutBody as any);
-
-    expect(result.body).toBeUndefined();
+    expect(result.cookies).toBeUndefined();
   });
 });
 
 describe('buildResSerializer', () => {
-  beforeEach(() => {
-    jest.spyOn(stdSerializers, 'res').mockImplementation((res: any) => ({
-      statusCode: res.statusCode,
-      headers: {},
-      raw: res,
-    }));
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('includes errorResponseBody from res.locals when present', () => {
+  it('returns statusCode and contentLength', () => {
     const serializer = buildResSerializer();
     const res = {
-      statusCode: 400,
-      locals: {
-        errorResponseBody: {
-          statusCode: 400,
-          error: 'Bad Request',
-          message: 'Invalid token',
-          code: 'INVALID_TOKEN',
-        },
-      },
+      statusCode: 200,
+      headers: { 'content-length': '123' },
     };
     const result = serializer(res as any);
 
-    expect(result.statusCode).toBe(400);
-    expect(result.body).toEqual(res.locals.errorResponseBody);
+    expect(result.statusCode).toBe(200);
+    expect(result.contentLength).toBe('123');
   });
 
-  it('omits body when errorResponseBody is not present', () => {
+  it('handles missing contentLength', () => {
     const serializer = buildResSerializer();
-    const res = { statusCode: 200 };
+    const res = { statusCode: 204 };
     const result = serializer(res as any);
 
-    expect(result.statusCode).toBe(200);
-    expect(result.body).toBeUndefined();
+    expect(result.statusCode).toBe(204);
+    expect(result.contentLength).toBeUndefined();
   });
 });
 
 describe('buildGenReqId', () => {
-  it('always generates a new UUID regardless of incoming header', () => {
+  it('uses req.id when available', () => {
     const genReqId = buildGenReqId();
-    const req = {
-      headers: { 'x-request-id': 'existing-id-123' },
-    } as any;
+    const req = { id: 'existing-id', headers: {} } as any;
     const res = { setHeader: jest.fn() } as any;
 
     const id = genReqId(req, res);
 
-    expect(id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
-    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', id);
+    expect(id).toBe('existing-id');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', 'existing-id');
   });
 
-  it('generates a UUID on every call', () => {
+  it('uses x-request-id header when req.id is not available', () => {
     const genReqId = buildGenReqId();
-    const req = { headers: {} } as any;
+    const req = { id: undefined, headers: { 'x-request-id': 'header-id-123' } } as any;
+    const res = { setHeader: jest.fn() } as any;
+
+    const id = genReqId(req, res);
+
+    expect(id).toBe('header-id-123');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Request-Id', 'header-id-123');
+  });
+
+  it('generates a UUID when no id is available', () => {
+    const genReqId = buildGenReqId();
+    const req = { id: undefined, headers: {} } as any;
     const res = { setHeader: jest.fn() } as any;
 
     const id = genReqId(req, res);
@@ -149,57 +117,75 @@ describe('buildGenReqId', () => {
 });
 
 describe('buildCustomProps', () => {
+  const baseReq = {
+    user: { userId: 'user-123', roleId: 'role-456' },
+    body: { email: 'test@example.com', password: 'secret123' },
+  };
+
+  const baseRes = {
+    locals: {
+      errorResponseBody: {
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Invalid token',
+      },
+    },
+  };
+
   it('extracts userId and roleId from authenticated requests', () => {
-    const req = {
-      user: { userId: 'user-123', roleId: 'role-456' },
-    } as any;
-
-    const props = buildCustomProps(req);
-
+    const props = buildCustomProps(baseReq as any, baseRes as any);
     expect(props.userId).toBe('user-123');
     expect(props.roleId).toBe('role-456');
   });
 
   it('returns undefined for userId and roleId on public routes', () => {
-    const req = { user: undefined } as any;
-
-    const props = buildCustomProps(req);
-
+    const req = { ...baseReq, user: undefined };
+    const props = buildCustomProps(req as any, baseRes as any);
     expect(props.userId).toBeUndefined();
     expect(props.roleId).toBeUndefined();
   });
-});
 
-describe('parseLogRequestBodies', () => {
-  it('defaults to true in non-production when env var is unset', () => {
-    expect(parseLogRequestBodies(undefined, false)).toBe(true);
+  it('includes requestBody when req.body is present', () => {
+    const props = buildCustomProps(baseReq as any, baseRes as any);
+    expect(props.requestBody).toEqual(baseReq.body);
   });
 
-  it('defaults to false in production when env var is unset', () => {
-    expect(parseLogRequestBodies(undefined, true)).toBe(false);
+  it('omits requestBody when req.body is empty', () => {
+    const req = { ...baseReq, body: {} };
+    const props = buildCustomProps(req as any, baseRes as any);
+    expect(props.requestBody).toBeUndefined();
   });
 
-  it('returns true when env var is "true"', () => {
-    expect(parseLogRequestBodies('true', true)).toBe(true);
-    expect(parseLogRequestBodies('true', false)).toBe(true);
+  it('includes responseBody when res.locals.errorResponseBody is present', () => {
+    const props = buildCustomProps(baseReq as any, baseRes as any);
+    expect(props.responseBody).toEqual(baseRes.locals.errorResponseBody);
   });
 
-  it('returns false when env var is "false"', () => {
-    expect(parseLogRequestBodies('false', true)).toBe(false);
-    expect(parseLogRequestBodies('false', false)).toBe(false);
+  it('omits responseBody when res.locals.errorResponseBody is not present', () => {
+    const res = { locals: {} };
+    const props = buildCustomProps(baseReq as any, res as any);
+    expect(props.responseBody).toBeUndefined();
   });
 });
 
 describe('REDACT_PATHS', () => {
   it('includes all expected sensitive field paths', () => {
     expect(REDACT_PATHS).toEqual([
-      'req.body.password',
-      'req.body.newPassword',
-      'req.body.token',
-      'req.cookies.refresh_token',
-      'req.headers.authorization',
-      'req.headers.cookie',
-      'res.headers.set-cookie',
+      'request.headers.authorization',
+      'request.headers.cookie',
+      'request.headers["x-api-key"]',
+      'request.cookies.refresh_token',
+      'requestBody.password',
+      'requestBody.access_token',
+      'requestBody.refresh_token',
+      'requestBody.token',
+      'requestBody.secret',
+      'requestBody.currentPassword',
+      'requestBody.newPassword',
+      'responseBody.access_token',
+      'responseBody.refresh_token',
+      'responseBody.token',
+      'response.headers.set-cookie',
     ]);
   });
 });

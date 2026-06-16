@@ -49,7 +49,6 @@ const AUTH_RATE_LIMIT = parseInt(process.env.RATE_LIMIT_AUTH ?? '10', 10);
 
 @ApiTags('Auth')
 @Controller('auth')
-@Throttle({ default: { limit: AUTH_RATE_LIMIT } })
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -83,6 +82,7 @@ export class AuthController {
   }
 
   @Post('register')
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @Public()
   @RegisterDocs()
   @HttpCode(HttpStatus.CREATED)
@@ -94,6 +94,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @Public()
   @LoginDocs()
   @HttpCode(HttpStatus.OK)
@@ -121,13 +122,16 @@ export class AuthController {
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<LoginResponseDto> {
     const token = req.cookies['refresh_token'] as string | undefined;
     const result = await this.authService.refresh(token);
 
     this.setRefreshTokenCookie(res, result.refreshToken, result.expiresAt);
 
-    return { accessToken: result.accessToken };
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+    };
   }
 
   @Post('logout')
@@ -157,6 +161,7 @@ export class AuthController {
   }
 
   @Post('resend-verification')
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @Public()
   @ResendVerificationDocs()
   @HttpCode(HttpStatus.OK)
@@ -167,6 +172,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @Public()
   @ForgotPasswordDocs()
   @HttpCode(HttpStatus.OK)
@@ -177,6 +183,7 @@ export class AuthController {
   }
 
   @Post('reset-password')
+  @Throttle({ default: { limit: AUTH_RATE_LIMIT } })
   @Public()
   @ResetPasswordDocs()
   @HttpCode(HttpStatus.OK)

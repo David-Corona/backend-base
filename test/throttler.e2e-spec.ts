@@ -128,6 +128,21 @@ describe('Rate Limiting (e2e)', () => {
         });
       });
     });
+
+    it('uses the global rate limit (60), not the auth-specific limit (10)', async () => {
+      const requests: Promise<request.Response>[] = [];
+
+      for (let i = 0; i < 15; i++) {
+        requests.push(
+          request(app.getHttpServer() as Server).post('/api/auth/refresh'),
+        );
+      }
+
+      const responses = await Promise.all(requests);
+      responses.forEach((res) => {
+        expect(res.status).toBe(401);
+      });
+    });
   });
 
   describe('GET /api/health', () => {

@@ -348,9 +348,22 @@ describe('AuthController (e2e)', () => {
         .set('Cookie', cookies)
         .expect(200);
 
-      const refreshBody = refreshResponse.body as { accessToken: string };
+      const refreshBody = refreshResponse.body as LoginResponse;
       expect(refreshBody.accessToken).toBeDefined();
       expect(typeof refreshBody.accessToken).toBe('string');
+      expect(refreshBody.user).toEqual({
+        id: expect.any(String) as string,
+        email: 'auth-user@example.com',
+        name: null,
+        isActive: true,
+        isVerified: true,
+        role: {
+          id: expect.any(String) as string,
+          name: 'user',
+        },
+        createdAt: expect.any(String) as string,
+        updatedAt: expect.any(String) as string,
+      });
 
       const newCookies = refreshResponse.headers['set-cookie'] as unknown as string[];
       expect(newCookies).toBeDefined();
@@ -397,8 +410,9 @@ describe('AuthController (e2e)', () => {
         .set('Cookie', cookies)
         .expect(200);
 
-      const refreshBody1 = refreshResponse1.body as { accessToken: string };
+      const refreshBody1 = refreshResponse1.body as LoginResponse;
       expect(refreshBody1.accessToken).toBeDefined();
+      expect(refreshBody1.user.email).toBe('auth-user@example.com');
 
       // Reuse the same old cookie — should fail
       const refreshResponse2 = await request(app.getHttpServer() as Server)

@@ -19,7 +19,7 @@ describe('UsersService', () => {
     isActive: true,
     isVerified: true,
     roleId: 'role-1',
-    role: { id: 'role-1', name: 'user' },
+    role: { id: 'role-1', name: 'user', permissions: [] },
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
   };
@@ -32,7 +32,7 @@ describe('UsersService', () => {
     isActive: true,
     isVerified: true,
     roleId: 'role-admin',
-    role: { id: 'role-admin', name: 'admin' },
+    role: { id: 'role-admin', name: 'admin', permissions: [] },
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
   };
@@ -74,6 +74,7 @@ describe('UsersService', () => {
         isActive: true,
         isVerified: true,
         role: { id: 'role-1', name: 'user' },
+        permissions: [],
       });
       expect(prisma.user.count).toHaveBeenCalledWith(
         expect.objectContaining({ where: { isActive: true } }),
@@ -197,6 +198,35 @@ describe('UsersService', () => {
         email: 'test@example.com',
         name: 'Test User',
       });
+    });
+
+    it('flattens role permissions into a permissions array', async () => {
+      const userWithPermissions = {
+        ...mockUser,
+        role: {
+          id: 'role-admin',
+          name: 'admin',
+          permissions: [
+            { permission: { key: 'users:read' } },
+            { permission: { key: 'users:write' } },
+            { permission: { key: 'roles:read' } },
+          ],
+        },
+      };
+      prisma.user.findUnique.mockResolvedValue(userWithPermissions);
+
+      const result = await service.findOne('user-1');
+
+      expect(result.permissions).toEqual(['users:read', 'users:write', 'roles:read']);
+      expect(result.role).toEqual({ id: 'role-admin', name: 'admin' });
+    });
+
+    it('returns empty permissions array when role has no permissions', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.findOne('user-1');
+
+      expect(result.permissions).toEqual([]);
     });
 
     it('throws UserNotFoundException when user does not exist', async () => {
@@ -398,7 +428,7 @@ describe('UsersService', () => {
   describe('assignRole', () => {
     it('assigns a role to a user', async () => {
       prisma.role.findUnique.mockResolvedValue({ id: 'role-admin', name: 'admin' } as never);
-      const updatedUser = { ...mockUser, roleId: 'role-admin', role: { id: 'role-admin', name: 'admin' } };
+      const updatedUser = { ...mockUser, roleId: 'role-admin', role: { id: 'role-admin', name: 'admin', permissions: [] } };
       prisma.user.update.mockResolvedValue(updatedUser);
 
       const result = await service.assignRole('user-1', 'role-admin');
