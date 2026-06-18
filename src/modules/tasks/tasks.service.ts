@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Logger } from 'nestjs-pino';
 import { AuthService } from '@/modules/auth/auth.service';
-import { SessionService } from '@/modules/auth/session.service';
+import { SessionService } from '@/modules/sessions/session.service';
 
 @Injectable()
 export class TasksService {

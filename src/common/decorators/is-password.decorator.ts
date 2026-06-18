@@ -18,7 +18,7 @@ export function IsPassword(validationOptions?: ValidationOptions) {
           return true;
         },
         defaultMessage(): string {
-          return 'Password must be at least 8 characters long, at most 128 characters long, and contain an uppercase letter, a lowercase letter, and a digit';
+          return 'Password must be at least 8 characters long, and contain an uppercase letter, a lowercase letter, and a digit';
         },
       },
     });

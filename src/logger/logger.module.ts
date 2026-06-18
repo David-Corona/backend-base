@@ -6,44 +6,47 @@ import type { Request, Response } from 'express';
 import { IncomingMessage, ServerResponse } from 'http';
 
 export const REDACT_PATHS = [
-  'request.headers.authorization',
-  'request.headers.cookie',
-  'request.headers["x-api-key"]',
-  'request.cookies.refresh_token',
-  'requestBody.password',
-  'requestBody.access_token',
-  'requestBody.refresh_token',
-  'requestBody.token',
-  'requestBody.secret',
-  'requestBody.currentPassword',
-  'requestBody.newPassword',
-  'responseBody.access_token',
-  'responseBody.refresh_token',
-  'responseBody.token',
-  'response.headers.set-cookie',
+  'req.headers.authorization',
+  'req.headers.cookie',
+  'req.headers["x-api-key"]',
+  'req.headers["x-forwarded-for"]',
+  'req.cookies.refresh_token',
+  'req.body.password',
+  'req.body.newPassword',
+  'req.body.currentPassword',
+  'req.body.token',
+  'req.body.access_token',
+  'req.body.refresh_token',
+  'req.body.secret',
+  'req.body.email',
+  'req.body.phone',
+  'req.body.ssn',
+  'req.body.creditCard',
+  'res.headers.set-cookie',
 ];
 
-export function buildReqSerializer(): (req: Request) => Record<string, unknown> {
-  return (req: Request) => {
-    return {
-      id: req.id,
-      method: req.method,
-      url: req.url,
-      path: req.path,
-      params: req.params,
-      query: req.query,
-      cookies: req.cookies,
-      remoteAddress: req.headers['x-forwarded-for'] || req.socket?.remoteAddress,
-      userAgent: req.headers['user-agent'],
-    };
-  };
-}
+const RESPONSE_HEADERS_ALLOWLIST = new Set([
+  'content-type',
+  'content-length',
+  'etag',
+  'x-request-id',
+  'x-ratelimit-limit',
+  'x-ratelimit-remaining',
+  'x-ratelimit-reset',
+]);
 
-export function buildResSerializer(): (res: Response) => Record<string, unknown> {
-  return (res: Response) => {
+export function buildResSerializer(): (res: Record<string, unknown>) => Record<string, unknown> {
+  return (res: Record<string, unknown>) => {
+    const headers = (res.headers ?? {}) as Record<string, unknown>;
+    const trimmedHeaders: Record<string, unknown> = {};
+    for (const key of Object.keys(headers)) {
+      if (RESPONSE_HEADERS_ALLOWLIST.has(key)) {
+        trimmedHeaders[key] = headers[key];
+      }
+    }
     return {
       statusCode: res.statusCode,
-      contentLength: (res as any).headers?.['content-length'],
+      headers: trimmedHeaders,
     };
   };
 }
@@ -61,20 +64,28 @@ export function buildGenReqId(): (req: IncomingMessage, res: ServerResponse) => 
 export function buildCustomProps(
   req: IncomingMessage,
   res: ServerResponse,
+  logRequestBodies: boolean,
+  logResponseBodies: boolean,
 ): Record<string, unknown> {
   const expressReq = req as Request;
   const expressRes = res as Response;
+  const user = expressReq.user as { userId?: string; roleId?: string } | undefined;
   const props: Record<string, unknown> = {
-    userId: expressReq.user?.userId,
-    roleId: expressReq.user?.roleId,
+    userId: user?.userId,
+    roleId: user?.roleId,
+    userAgent: expressReq.headers['user-agent'],
   };
 
-  if (expressReq.body && typeof expressReq.body === 'object' && Object.keys(expressReq.body).length > 0) {
+  if (logRequestBodies && expressReq.body && typeof expressReq.body === 'object' && Object.keys(expressReq.body).length > 0) {
     props.requestBody = expressReq.body;
   }
 
-  if (expressRes.locals?.errorResponseBody !== undefined) {
-    props.responseBody = expressRes.locals.errorResponseBody;
+  if (logResponseBodies) {
+    if (expressRes.locals?.responseBody !== undefined) {
+      props.responseBody = expressRes.locals.responseBody;
+    } else if (expressRes.locals?.errorResponseBody !== undefined) {
+      props.responseBody = expressRes.locals.errorResponseBody;
+    }
   }
 
   return props;
@@ -87,10 +98,11 @@ export function buildCustomProps(
       useFactory: (configService: ConfigService) => {
         const isProduction = configService.get('NODE_ENV') === 'production';
         const logLevel = isProduction ? 'info' : 'debug';
+        const logRequestBodies = configService.get('LOG_REQUEST_BODIES') === 'true';
+        const logResponseBodies = configService.get('LOG_RESPONSE_BODIES') === 'true';
 
         return {
           pinoHttp: {
-            messageKey: 'message',
             level: logLevel,
             transport: !isProduction
               ? {
@@ -103,9 +115,7 @@ export function buildCustomProps(
                   },
                 }
               : undefined,
-            wrapSerializers: false,
             serializers: {
-              req: buildReqSerializer(),
               res: buildResSerializer(),
             },
             redact: {
@@ -113,35 +123,14 @@ export function buildCustomProps(
               remove: true,
             },
             genReqId: buildGenReqId(),
-            customProps: (req: unknown, res: unknown) => buildCustomProps(req as Request, res as Response),
+            customProps: (req: unknown, res: unknown) =>
+              buildCustomProps(req as Request, res as Response, logRequestBodies, logResponseBodies),
             autoLogging: {
               ignore: (req: IncomingMessage) => {
                 const expressReq = req as Request;
                 const ignorePaths = ['/health', '/api/health', '/health/liveness', '/health/readiness', '/metrics'];
                 return ignorePaths.includes(expressReq.path);
               },
-            },
-            customReceivedObject: () => {
-              return { level: 'trace' };
-            },
-            customSuccessMessage: (req: IncomingMessage, res: ServerResponse) => {
-              const expressReq = req as Request;
-              return `[${expressReq.id}] ${expressReq.method} ${expressReq.path} ${res.statusCode}`;
-            },
-            customErrorMessage: (req: IncomingMessage, res: ServerResponse, err: Error) => {
-              const expressReq = req as Request;
-              return `[${expressReq.id}] ${expressReq.method} ${expressReq.path} ${res.statusCode} - ${err.message}`;
-            },
-            customLogLevel: (_req: IncomingMessage, res: ServerResponse, err?: Error) => {
-              if (res.statusCode >= 500 || err) return 'error';
-              if (res.statusCode >= 400) return 'warn';
-              return 'info';
-            },
-            customAttributeKeys: {
-              req: 'request',
-              res: 'response',
-              err: 'error',
-              responseTime: 'duration',
             },
           },
           forRoutes: [{ path: '{*splat}', method: RequestMethod.ALL }],

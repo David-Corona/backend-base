@@ -1,83 +1,9 @@
 import {
-  buildReqSerializer,
-  buildResSerializer,
   buildGenReqId,
+  buildResSerializer,
   buildCustomProps,
   REDACT_PATHS,
 } from './logger.module';
-
-describe('buildReqSerializer', () => {
-  const baseReq = {
-    id: 'req-id-123',
-    method: 'POST',
-    url: '/api/auth/login',
-    path: '/api/auth/login',
-    params: {},
-    query: { foo: 'bar' },
-    cookies: { refresh_token: 'abc123' },
-    headers: {
-      'user-agent': 'test-agent',
-      'x-forwarded-for': '1.2.3.4',
-    },
-    socket: { remoteAddress: '127.0.0.1' },
-    body: { email: 'test@example.com', password: 'secret123' },
-    user: { userId: 'user-1', roleId: 'role-1' },
-  };
-
-  it('returns request metadata', () => {
-    const serializer = buildReqSerializer();
-    const result = serializer(baseReq as any);
-
-    expect(result.id).toBe('req-id-123');
-    expect(result.method).toBe('POST');
-    expect(result.url).toBe('/api/auth/login');
-    expect(result.path).toBe('/api/auth/login');
-    expect(result.params).toEqual({});
-    expect(result.query).toEqual({ foo: 'bar' });
-    expect(result.cookies).toEqual({ refresh_token: 'abc123' });
-    expect(result.remoteAddress).toBe('1.2.3.4');
-    expect(result.userAgent).toBe('test-agent');
-  });
-
-  it('falls back to socket remoteAddress when x-forwarded-for is missing', () => {
-    const serializer = buildReqSerializer();
-    const reqWithoutForwardedFor = { ...baseReq, headers: { 'user-agent': 'test-agent' } };
-    const result = serializer(reqWithoutForwardedFor as any);
-
-    expect(result.remoteAddress).toBe('127.0.0.1');
-  });
-
-  it('handles requests without cookies', () => {
-    const serializer = buildReqSerializer();
-    const reqWithoutCookies = { ...baseReq, cookies: undefined };
-    const result = serializer(reqWithoutCookies as any);
-
-    expect(result.cookies).toBeUndefined();
-  });
-});
-
-describe('buildResSerializer', () => {
-  it('returns statusCode and contentLength', () => {
-    const serializer = buildResSerializer();
-    const res = {
-      statusCode: 200,
-      headers: { 'content-length': '123' },
-    };
-    const result = serializer(res as any);
-
-    expect(result.statusCode).toBe(200);
-    expect(result.contentLength).toBe('123');
-  });
-
-  it('handles missing contentLength', () => {
-    const serializer = buildResSerializer();
-    const res = { statusCode: 204 };
-    const result = serializer(res as any);
-
-    expect(result.statusCode).toBe(204);
-    expect(result.contentLength).toBeUndefined();
-  });
-});
 
 describe('buildGenReqId', () => {
   it('uses req.id when available', () => {
@@ -116,8 +42,51 @@ describe('buildGenReqId', () => {
   });
 });
 
+describe('buildResSerializer', () => {
+  it('returns statusCode and only allowed headers', () => {
+    const serializer = buildResSerializer();
+    const res = {
+      statusCode: 200,
+      headers: {
+        'content-type': 'application/json',
+        'content-length': '123',
+        etag: 'W/"123"',
+        'x-request-id': 'req-123',
+        'x-ratelimit-limit': '60',
+        'x-ratelimit-remaining': '59',
+        'x-ratelimit-reset': '60',
+        'content-security-policy': "default-src 'self'",
+        'x-content-type-options': 'nosniff',
+        'x-frame-options': 'SAMEORIGIN',
+      },
+    };
+    const result = serializer(res as any);
+
+    expect(result.statusCode).toBe(200);
+    expect(result.headers).toEqual({
+      'content-type': 'application/json',
+      'content-length': '123',
+      etag: 'W/"123"',
+      'x-request-id': 'req-123',
+      'x-ratelimit-limit': '60',
+      'x-ratelimit-remaining': '59',
+      'x-ratelimit-reset': '60',
+    });
+  });
+
+  it('handles missing headers', () => {
+    const serializer = buildResSerializer();
+    const res = { statusCode: 204, headers: {} };
+    const result = serializer(res as any);
+
+    expect(result.statusCode).toBe(204);
+    expect(result.headers).toEqual({});
+  });
+});
+
 describe('buildCustomProps', () => {
   const baseReq = {
+    headers: { 'user-agent': 'test-agent' },
     user: { userId: 'user-123', roleId: 'role-456' },
     body: { email: 'test@example.com', password: 'secret123' },
   };
@@ -133,59 +102,87 @@ describe('buildCustomProps', () => {
   };
 
   it('extracts userId and roleId from authenticated requests', () => {
-    const props = buildCustomProps(baseReq as any, baseRes as any);
+    const props = buildCustomProps(baseReq as any, baseRes as any, false, false);
     expect(props.userId).toBe('user-123');
     expect(props.roleId).toBe('role-456');
   });
 
   it('returns undefined for userId and roleId on public routes', () => {
     const req = { ...baseReq, user: undefined };
-    const props = buildCustomProps(req as any, baseRes as any);
+    const props = buildCustomProps(req as any, baseRes as any, false, false);
     expect(props.userId).toBeUndefined();
     expect(props.roleId).toBeUndefined();
   });
 
-  it('includes requestBody when req.body is present', () => {
-    const props = buildCustomProps(baseReq as any, baseRes as any);
+  it('includes userAgent from headers', () => {
+    const props = buildCustomProps(baseReq as any, baseRes as any, false, false);
+    expect(props.userAgent).toBe('test-agent');
+  });
+
+  it('includes requestBody when logRequestBodies is true', () => {
+    const props = buildCustomProps(baseReq as any, baseRes as any, true, false);
     expect(props.requestBody).toEqual(baseReq.body);
+  });
+
+  it('omits requestBody when logRequestBodies is false', () => {
+    const props = buildCustomProps(baseReq as any, baseRes as any, false, false);
+    expect(props.requestBody).toBeUndefined();
   });
 
   it('omits requestBody when req.body is empty', () => {
     const req = { ...baseReq, body: {} };
-    const props = buildCustomProps(req as any, baseRes as any);
+    const props = buildCustomProps(req as any, baseRes as any, true, false);
     expect(props.requestBody).toBeUndefined();
   });
 
-  it('includes responseBody when res.locals.errorResponseBody is present', () => {
-    const props = buildCustomProps(baseReq as any, baseRes as any);
+  it('includes responseBody when logResponseBodies is true and errorResponseBody is present', () => {
+    const props = buildCustomProps(baseReq as any, baseRes as any, false, true);
     expect(props.responseBody).toEqual(baseRes.locals.errorResponseBody);
+  });
+
+  it('omits responseBody when logResponseBodies is false', () => {
+    const props = buildCustomProps(baseReq as any, baseRes as any, false, false);
+    expect(props.responseBody).toBeUndefined();
   });
 
   it('omits responseBody when res.locals.errorResponseBody is not present', () => {
     const res = { locals: {} };
-    const props = buildCustomProps(baseReq as any, res as any);
+    const props = buildCustomProps(baseReq as any, res as any, false, true);
     expect(props.responseBody).toBeUndefined();
+  });
+
+  it('prefers responseBody over errorResponseBody when both are present', () => {
+    const res = {
+      locals: {
+        responseBody: { data: 'success' },
+        errorResponseBody: { statusCode: 400, error: 'Bad Request' },
+      },
+    };
+    const props = buildCustomProps(baseReq as any, res as any, false, true);
+    expect(props.responseBody).toEqual({ data: 'success' });
   });
 });
 
 describe('REDACT_PATHS', () => {
   it('includes all expected sensitive field paths', () => {
     expect(REDACT_PATHS).toEqual([
-      'request.headers.authorization',
-      'request.headers.cookie',
-      'request.headers["x-api-key"]',
-      'request.cookies.refresh_token',
-      'requestBody.password',
-      'requestBody.access_token',
-      'requestBody.refresh_token',
-      'requestBody.token',
-      'requestBody.secret',
-      'requestBody.currentPassword',
-      'requestBody.newPassword',
-      'responseBody.access_token',
-      'responseBody.refresh_token',
-      'responseBody.token',
-      'response.headers.set-cookie',
+      'req.headers.authorization',
+      'req.headers.cookie',
+      'req.headers["x-api-key"]',
+      'req.headers["x-forwarded-for"]',
+      'req.cookies.refresh_token',
+      'req.body.password',
+      'req.body.newPassword',
+      'req.body.currentPassword',
+      'req.body.token',
+      'req.body.access_token',
+      'req.body.refresh_token',
+      'req.body.secret',
+      'req.body.email',
+      'req.body.phone',
+      'req.body.ssn',
+      'req.body.creditCard',
+      'res.headers.set-cookie',
     ]);
   });
 });

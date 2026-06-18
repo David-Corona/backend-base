@@ -8,7 +8,7 @@ import { EmailService } from '@/modules/email/email.service';
 import { hash, compare } from 'bcryptjs';
 import { randomBytes, createHash } from 'crypto';
 import { InvalidCredentialsException, EmailNotVerifiedException, InvalidRefreshTokenException, InvalidTokenException, TokenExpiredException, AlreadyVerifiedException, InvalidPasswordException } from './auth.exceptions';
-import { SessionService } from './session.service';
+import { SessionService } from '@/modules/sessions/session.service';
 import { InternalServerErrorException, UnauthorizedException, UserAlreadyExistsException } from '@/common/exceptions';
 import { getViolatedFields } from '@/common/utils/prisma';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
@@ -171,15 +171,27 @@ export class AuthService {
       this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRATION') ?? '7d';
     const expiresAt = new Date(Date.now() + parseDuration(refreshTokenExpiry));
 
-    const session = await this.sessionService.create({
-      userId: user.id,
-      tokenHash: refreshTokenHash,
-      expiresAt,
-      userAgent: metadata?.userAgent,
-      ip: metadata?.ip,
+    const permissions = user.role.permissions.map((rp) => rp.permission.key);
+
+    const maxSessionsPerUser = this.configService.get<number>('MAX_SESSIONS_PER_USER') ?? 5;
+    const keepCount = Math.max(0, maxSessionsPerUser - 1);
+
+    const session = await this.prisma.$transaction(async (tx) => {
+      const existingSession = await this.sessionService.findDeviceSessionInTransaction(tx, user.id, metadata?.userAgent, metadata?.ip);
+      if (existingSession) {
+        await this.sessionService.deleteByIdInTransaction(tx, existingSession.id);
+      }
+      await this.sessionService.deleteOldestUserSessionsInTransaction(tx, user.id, keepCount);
+
+      return await this.sessionService.createInTransaction(tx, {
+        userId: user.id,
+        tokenHash: refreshTokenHash,
+        expiresAt,
+        userAgent: metadata?.userAgent,
+        ip: metadata?.ip,
+      });
     });
 
-    const permissions = user.role.permissions.map((rp) => rp.permission.key);
     const accessToken = this.jwtService.sign({ sub: user.id, roleId: user.roleId, sid: session.id, permissions });
 
     const userDto: UserResponseDto = {
@@ -211,6 +223,11 @@ export class AuthService {
 
     const tokenHash = hashToken(refreshToken);
 
+    const existingSession = await this.sessionService.findByTokenHash(tokenHash);
+    if (!existingSession || existingSession.expiresAt < new Date()) {
+      throw new InvalidRefreshTokenException();
+    }
+
     return this.prisma.$transaction(async (tx) => {
       let session: { id: string; userId: string; expiresAt: Date; userAgent: string | null; ip: string | null };
       try {
@@ -223,10 +240,6 @@ export class AuthService {
           throw new InvalidRefreshTokenException();
         }
         throw error;
-      }
-
-      if (session.expiresAt < new Date()) {
-        throw new InvalidRefreshTokenException();
       }
 
       const newRefreshToken = generateOpaqueToken();
@@ -282,7 +295,8 @@ export class AuthService {
 
   async logout(refreshToken: string): Promise<void> {
     const tokenHash = hashToken(refreshToken);
-    await this.sessionService.deleteSessionByTokenHash(tokenHash);
+    const res = await this.sessionService.deleteSessionByTokenHash(tokenHash);
+    return res;
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {

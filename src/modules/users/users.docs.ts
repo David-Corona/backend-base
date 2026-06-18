@@ -19,7 +19,6 @@ import { UpdateUserRequestDto } from './dto/update-user-request.dto';
 import { UpdateProfileRequestDto } from './dto/update-profile-request.dto';
 import { AssignRoleRequestDto } from './dto/assign-role-request.dto';
 import { PaginatedUsersResponseDto } from './dto/paginated-users-response.dto';
-import { PaginatedUserSessionsResponseDto } from './dto/paginated-user-sessions-response.dto';
 
 export const GetUsersDocs = () =>
   applyDecorators(
@@ -254,92 +253,5 @@ export const AssignRoleDocs = () =>
     }),
     ApiNotFoundResponse({
       description: 'USER_NOT_FOUND - User not found; ROLE_NOT_FOUND - Role not found',
-    }),
-  );
-
-export const ListUserSessionsDocs = () =>
-  applyDecorators(
-    ApiBearerAuth(),
-    ApiOperation({
-      summary: 'List user sessions',
-      description:
-        'Returns a paginated list of active (non-expired) sessions for the specified user. Requires the `users:read` permission.',
-    }),
-    ApiParam({
-      name: 'userId',
-      description: 'User UUID',
-      format: 'uuid',
-      example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    }),
-    ApiOkResponse({
-      type: PaginatedUserSessionsResponseDto,
-      description: 'Paginated list of sessions for the user',
-    }),
-    ApiBadRequestResponse({
-      description: 'VALIDATION_ERROR - Query parameter validation failed',
-    }),
-    ApiUnauthorizedResponse({
-      description:
-        'AUTH_REQUIRED - Authentication required; UNAUTHORIZED - Invalid or expired token; USER_NOT_FOUND - User not found; ACCOUNT_INACTIVE - Account is inactive',
-    }),
-    ApiForbiddenResponse({
-      description: 'PERMISSION_DENIED - Insufficient permissions (requires users:read)',
-    }),
-  );
-
-export const TerminateUserSessionDocs = () =>
-  applyDecorators(
-    ApiBearerAuth(),
-    ApiOperation({
-      summary: 'Terminate a user session',
-      description:
-        'Terminates a specific session belonging to the specified user. Requires the `users:write` permission.',
-    }),
-    ApiParam({
-      name: 'userId',
-      description: 'User UUID',
-      format: 'uuid',
-      example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    }),
-    ApiParam({
-      name: 'id',
-      description: 'Session UUID',
-      format: 'uuid',
-      example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    }),
-    ApiResponse({ status: 204, description: 'Session terminated successfully' }),
-    ApiUnauthorizedResponse({
-      description:
-        'AUTH_REQUIRED - Authentication required; UNAUTHORIZED - Invalid or expired token; USER_NOT_FOUND - User not found; ACCOUNT_INACTIVE - Account is inactive',
-    }),
-    ApiForbiddenResponse({
-      description: 'PERMISSION_DENIED - Insufficient permissions (requires users:write)',
-    }),
-    ApiNotFoundResponse({
-      description: 'SESSION_NOT_FOUND - Session not found',
-    }),
-  );
-
-export const TerminateAllUserSessionsDocs = () =>
-  applyDecorators(
-    ApiBearerAuth(),
-    ApiOperation({
-      summary: 'Terminate all user sessions',
-      description:
-        'Terminates every active session belonging to the specified user. Requires the `users:write` permission.',
-    }),
-    ApiParam({
-      name: 'userId',
-      description: 'User UUID',
-      format: 'uuid',
-      example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    }),
-    ApiResponse({ status: 204, description: 'All user sessions terminated successfully' }),
-    ApiUnauthorizedResponse({
-      description:
-        'AUTH_REQUIRED - Authentication required; UNAUTHORIZED - Invalid or expired token; USER_NOT_FOUND - User not found; ACCOUNT_INACTIVE - Account is inactive',
-    }),
-    ApiForbiddenResponse({
-      description: 'PERMISSION_DENIED - Insufficient permissions (requires users:write)',
     }),
   );

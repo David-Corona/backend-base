@@ -13,19 +13,16 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { SessionService } from '@/modules/auth/session.service';
 import { NotSelfGuard } from '@/common/guards/not-self.guard';
 import { RequirePermissions } from '@/common/decorators/require-permissions.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { PERMISSIONS } from '@/common/permissions';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
-import { SessionResponseDto } from '@/common/dto/session-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 import { CreateUserRequestDto } from './dto/create-user-request.dto';
 import { UpdateUserRequestDto } from './dto/update-user-request.dto';
 import { UpdateProfileRequestDto } from './dto/update-profile-request.dto';
 import { UsersPaginationQueryDto } from './dto/users-pagination-query.dto';
-import { PaginationQueryDto } from '@/common/dto/pagination-query.dto';
 import { AssignRoleRequestDto } from './dto/assign-role-request.dto';
 import {
   GetUsersDocs,
@@ -37,18 +34,12 @@ import {
   DeactivateUserDocs,
   ActivateUserDocs,
   AssignRoleDocs,
-  ListUserSessionsDocs,
-  TerminateUserSessionDocs,
-  TerminateAllUserSessionsDocs,
 } from './users.docs';
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly sessionService: SessionService,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.USERS_READ)
@@ -123,36 +114,5 @@ export class UsersController {
     @Body() dto: AssignRoleRequestDto,
   ): Promise<UserResponseDto> {
     return this.usersService.assignRole(userId, dto.roleId);
-  }
-
-  @Get(':userId/sessions')
-  @RequirePermissions(PERMISSIONS.USERS_READ)
-  @ListUserSessionsDocs()
-  async listUserSessions(
-    @Param('userId') userId: string,
-    @Query() pagination: PaginationQueryDto,
-  ): Promise<PaginatedResponse<SessionResponseDto>> {
-    return this.sessionService.listSessions(userId, undefined, pagination.page, pagination.limit);
-  }
-
-  @Delete(':userId/sessions/:id')
-  @RequirePermissions(PERMISSIONS.USERS_WRITE)
-  @TerminateUserSessionDocs()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async terminateUserSession(
-    @Param('userId') userId: string,
-    @Param('id') sessionId: string,
-  ): Promise<void> {
-    await this.sessionService.terminateSession(sessionId, { userId });
-  }
-
-  @Delete(':userId/sessions')
-  @RequirePermissions(PERMISSIONS.USERS_WRITE)
-  @TerminateAllUserSessionsDocs()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async terminateAllUserSessions(
-    @Param('userId') userId: string,
-  ): Promise<void> {
-    await this.sessionService.terminateAllSessions(userId);
   }
 }

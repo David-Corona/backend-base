@@ -6,6 +6,8 @@ export const PERMISSIONS = {
   ROLES_READ: 'roles:read',
   ROLES_WRITE: 'roles:write',
   ROLES_DELETE: 'roles:delete',
+  SESSIONS_READ: 'sessions:read',
+  SESSIONS_TERMINATE: 'sessions:terminate',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

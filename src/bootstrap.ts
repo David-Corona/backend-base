@@ -5,6 +5,7 @@ import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import type { Express } from 'express';
 import { AppExceptionFilter } from '@/common/filters/app-exception.filter';
+import { ResponseBodyMiddleware } from '@/common/middleware/response-body.middleware';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as crypto from 'crypto';
 
@@ -24,6 +25,7 @@ export function configureApp(app: INestApplication, configService: ConfigService
   );
   app.use(cookieParser());
   app.use(helmet());
+  app.use(new ResponseBodyMiddleware().use.bind(new ResponseBodyMiddleware()));
 
   const allowedOrigins = configService.get<string>('ALLOWED_ORIGINS');
   if (allowedOrigins) {

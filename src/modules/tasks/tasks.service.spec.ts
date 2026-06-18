@@ -3,7 +3,7 @@ import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
 import { Logger } from 'nestjs-pino';
 import { TasksService } from './tasks.service';
 import { AuthService } from '@/modules/auth/auth.service';
-import { SessionService } from '@/modules/auth/session.service';
+import { SessionService } from '@/modules/sessions/session.service';
 
 describe('TasksService', () => {
   let service: TasksService;

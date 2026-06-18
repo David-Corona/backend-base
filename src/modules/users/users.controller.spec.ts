@@ -1,15 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { SessionService } from '@/modules/auth/session.service';
-import { SessionResponseDto } from '@/common/dto/session-response.dto';
 import { UserResponseDto } from '@/common/dto/user-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 
 describe('UsersController', () => {
   let controller: UsersController;
   let usersService: jest.Mocked<UsersService>;
-  let sessionService: jest.Mocked<SessionService>;
 
   const mockUserResponse: UserResponseDto = {
     id: 'user-1',
@@ -21,16 +18,6 @@ describe('UsersController', () => {
     permissions: ['users:read'],
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
-  };
-
-  const mockSessionResponse: SessionResponseDto = {
-    id: 'session-1',
-    isCurrent: false,
-    userAgent: 'Mozilla/5.0',
-    ip: '127.0.0.1',
-    expiresAt: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
   };
 
   beforeEach(async () => {
@@ -49,20 +36,11 @@ describe('UsersController', () => {
             assignRole: jest.fn(),
           },
         },
-        {
-          provide: SessionService,
-          useValue: {
-            listSessions: jest.fn(),
-            terminateSession: jest.fn(),
-            terminateAllSessions: jest.fn(),
-          },
-        },
       ],
     }).compile();
 
     controller = module.get(UsersController);
     usersService = module.get(UsersService);
-    sessionService = module.get(SessionService);
   });
 
   describe('findAll', () => {
@@ -168,37 +146,6 @@ describe('UsersController', () => {
 
       expect(usersService.assignRole).toHaveBeenCalledWith('user-1', 'role-admin');
       expect(result).toEqual(mockUserResponse);
-    });
-  });
-
-  describe('listUserSessions', () => {
-    it('returns paginated sessions for the given user', async () => {
-      const paginatedSessions: PaginatedResponse<SessionResponseDto> = {
-        data: [mockSessionResponse],
-        meta: { total: 1, page: 1, limit: 25, totalPages: 1 },
-      };
-      sessionService.listSessions.mockResolvedValue(paginatedSessions);
-
-      const result = await controller.listUserSessions('user-1', { page: 1, limit: 25 });
-
-      expect(sessionService.listSessions).toHaveBeenCalledWith('user-1', undefined, 1, 25);
-      expect(result).toEqual(paginatedSessions);
-    });
-  });
-
-  describe('terminateUserSession', () => {
-    it('terminates a specific session for the given user', async () => {
-      await controller.terminateUserSession('user-1', 'session-1');
-
-      expect(sessionService.terminateSession).toHaveBeenCalledWith('session-1', { userId: 'user-1' });
-    });
-  });
-
-  describe('terminateAllUserSessions', () => {
-    it('terminates all sessions for the given user', async () => {
-      await controller.terminateAllUserSessions('user-1');
-
-      expect(sessionService.terminateAllSessions).toHaveBeenCalledWith('user-1');
     });
   });
 });

@@ -21,6 +21,8 @@ async function main(): Promise<void> {
     { key: 'roles:read', name: 'Read Roles', description: 'View roles and permissions' },
     { key: 'roles:write', name: 'Write Roles', description: 'Create roles and assign permissions' },
     { key: 'roles:delete', name: 'Delete Roles', description: 'Delete roles' },
+    { key: 'sessions:read', name: 'Read Sessions', description: 'View all user sessions' },
+    { key: 'sessions:terminate', name: 'Terminate Sessions', description: 'Terminate any user session' },
   ];
 
   // Upsert permissions

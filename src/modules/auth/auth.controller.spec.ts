@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { SessionService } from './session.service';
+import { SessionService } from '@/modules/sessions/session.service';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 

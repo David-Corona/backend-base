@@ -30,7 +30,7 @@ A production-ready NestJS 11 backend starter with JWT authentication, role-based
 ## Features
 
 - **Authentication** — Register, login, logout, JWT access tokens, one-time-use refresh tokens via httpOnly cookie, email verification, password reset flow, change password.
-- **Session Management** — Track active sessions with metadata (IP, user-agent), terminate specific or all sessions, automatic cleanup of expired sessions via cron.
+- **Session Management** — User-facing session listing and termination via `/auth/sessions`. Admin-facing global session management with filtering (by user, IP, user-agent, date range, expiry status) and cross-user termination via `/sessions`.
 - **RBAC** — Role-based access control with granular permissions, system-protected roles (admin/user), permission assignment to roles, guard-based enforcement via `@RequirePermissions()` decorators.
 - **User Management** — CRUD operations, profile updates, activate/deactivate users, role assignment, paginated listing with filters (status, name, email).
 - **Role Management** — Create, read, update, delete roles with permission associations. System roles are protected from modification and deletion. Cascade protection prevents deleting roles currently assigned to users.
@@ -69,17 +69,22 @@ graph TD
     AppModule --> AuthModule["AuthModule"]
     AppModule --> UsersModule["UsersModule"]
     AppModule --> RolesModule["RolesModule"]
+    AppModule --> SessionsModule["SessionsModule"]
     AppModule --> EmailModule["EmailModule"]
     AppModule --> TasksModule["TasksModule"]
 
     HealthModule --> PrismaService["PrismaService"]
     AuthModule --> UsersModule
     AuthModule --> EmailModule
+    AuthModule --> SessionsModule
     AuthModule --> PrismaService
     UsersModule --> PrismaService
+    UsersModule --> SessionsModule
     RolesModule --> PrismaService
+    SessionsModule --> PrismaService
     EmailModule --> Resend["Resend API"]
     TasksModule --> PrismaService
+    TasksModule --> SessionsModule
 ```
 
 **Request flow:** Request → ThrottlerGuard → JwtAuthGuard → PermissionsGuard → Controller → Service → PrismaService → PostgreSQL
@@ -143,8 +148,8 @@ Access the interactive API documentation at `http://localhost:3000/docs`. Login 
 | POST | `/auth/forgot-password` | Public | Request password reset |
 | POST | `/auth/reset-password` | Public | Reset password with token |
 | POST | `/auth/change-password` | Protected | Change password (requires current) |
-| GET | `/auth/sessions` | Protected | List user sessions (paginated) |
-| DELETE | `/auth/sessions/:id` | Protected | Terminate a specific session |
+| GET | `/auth/sessions` | Protected | List own sessions (paginated) |
+| DELETE | `/auth/sessions/:id` | Protected | Terminate own session |
 | DELETE | `/auth/sessions` | Protected | Terminate all other sessions |
 
 ### Users (`/api/users`)
@@ -160,9 +165,15 @@ Access the interactive API documentation at `http://localhost:3000/docs`. Login 
 | DELETE | `/users/:id` | `users:delete` | Deactivate user |
 | PATCH | `/users/:id/activate` | `users:write` | Activate user |
 | PATCH | `/users/:id/role` | `users:assign-role` | Assign role to user |
-| GET | `/users/:userId/sessions` | `users:read` | List user sessions |
-| DELETE | `/users/:userId/sessions/:id` | `users:write` | Terminate user session |
-| DELETE | `/users/:userId/sessions` | `users:write` | Terminate all user sessions |
+
+### Sessions (`/api/sessions`)
+
+| Method | Endpoint | Permission | Description |
+|--------|----------|------------|-------------|
+| GET | `/sessions` | `sessions:read` | List all sessions (paginated, filterable by userId, IP, user-agent, date range, expiry) |
+| GET | `/sessions/:id` | `sessions:read` | Get session by ID |
+| DELETE | `/sessions/:id` | `sessions:terminate` | Terminate a specific session |
+| DELETE | `/sessions?userId=` | `sessions:terminate` | Terminate all sessions for a user |
 
 ### Roles (`/api/roles`)
 
@@ -228,8 +239,9 @@ src/
 │   ├── dto/                   # Shared response/pagination DTOs
 │   └── utils/                 # Pagination helpers
 └── modules/
-    ├── auth/                  # JWT auth, sessions, email verification, password reset
-    ├── users/                 # User CRUD, profile, role assignment, session management
+    ├── auth/                  # JWT auth, user-facing sessions, email verification, password reset
+    ├── users/                 # User CRUD, profile, role assignment
+    ├── sessions/              # Admin session management (list, terminate, filtering)
     ├── roles/                 # Role CRUD, permission listing
     ├── health/                # Terminus health checks with Prisma indicator
     ├── email/                 # Resend email service with MJML templates

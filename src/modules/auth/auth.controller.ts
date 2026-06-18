@@ -18,7 +18,7 @@ import type { Request, Response } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
-import { SessionService } from './session.service';
+import { SessionService } from '@/modules/sessions/session.service';
 import { SessionResponseDto } from '@/common/dto/session-response.dto';
 import type { PaginatedResponse } from '@/common/dto/paginated-response.dto';
 import { RegisterRequestDto } from './dto/register-request.dto';
